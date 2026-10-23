@@ -14,6 +14,13 @@
 
   /* ---------- the published record ---------- */
   async function loadList() {
+    // Browsers refuse to fetch a local file from a local page, so opening this
+    // straight from disk can never read the list. Say so rather than showing a
+    // bare CORS error.
+    if (location.protocol === "file:") {
+      data = { entries: [], fromFile: true };
+      return data;
+    }
     try {
       const res = await fetch("toplist.json?t=" + Date.now(), { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -35,10 +42,20 @@
     const summary = document.getElementById("listSummary");
     const fp = document.getElementById("fingerprint");
 
+    if (data.fromFile) {
+      body.className = "toplist-body empty";
+      body.innerHTML = "This page was opened straight from a file, and a browser will not let a "
+        + "local page read a local file, so the winners list cannot be shown here.<br><br>"
+        + "Run <code>serve.bat</code> and open the address it prints, or publish to GitHub Pages.";
+      summary.textContent = "List unavailable from a file";
+      fp.textContent = "—";
+      return;
+    }
     if (data.error) {
       body.className = "toplist-body empty";
       body.textContent = "The winners list could not be loaded (" + data.error + ").";
       summary.textContent = "List unavailable";
+      fp.textContent = "—";
       return;
     }
     if (!data.entries.length) {
@@ -124,9 +141,14 @@
 
     if (!listed) {
       box.className = "scan-result warn";
-      box.innerHTML = `<div class="scan-head">⚠ Genuine badge, not on the published list</div>${card}
-        <p>The badge itself is intact, but this result has not been published to the winners
-        list below, so it cannot be confirmed as official yet.</p>`;
+      const why = data.fromFile || data.error
+        ? "The badge itself is intact, but the winners list could not be read here, so it cannot be "
+          + "checked against the published record."
+        : "The badge itself is intact, but this result has not been published to the winners "
+          + "list below, so it cannot be confirmed as official yet.";
+      box.innerHTML = `<div class="scan-head">⚠ ${data.fromFile || data.error
+        ? "Badge is intact, list unavailable" : "Genuine badge, not on the published list"}</div>${card}
+        <p>${why}</p>`;
       return;
     }
     const matches = listed.name === info.name && Number(listed.rank) === info.rank
