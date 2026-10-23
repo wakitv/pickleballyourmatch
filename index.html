@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.5">
+  <link rel="stylesheet" href="style.css?v=6.6">
 </head>
 <body>
   <div class="app-shell">
@@ -28,6 +28,7 @@
       <button type="button" class="menu-btn" data-modal="modalAddPlayer"><span class="menu-ic">👤</span>Add player</button>
       <button type="button" class="menu-btn" data-modal="modalSettings"><span class="menu-ic">⚙️</span>Match settings</button>
       <button type="button" class="menu-btn" data-modal="modalLeaderboard"><span class="menu-ic">🏆</span>Leaderboard</button>
+      <button type="button" class="menu-btn" data-modal="modalMiniGame"><span class="menu-ic">🎮</span>Mini game</button>
       <button type="button" class="menu-btn" data-modal="modalHistory"><span class="menu-ic">📋</span>History<b class="nav-count" id="navHistory">0</b></button>
       <button type="button" class="menu-btn" data-modal="modalHow"><span class="menu-ic">💡</span>How it works</button>
     </nav>
@@ -38,10 +39,6 @@
       <section class="hero">
         <div class="hero-copy">
           <h2>Fair matches. Continuous play.</h2>
-          <div class="hero-scene">
-            <canvas id="heroScene" width="200" height="66" role="img"
-              aria-label="Pixel art animation of a doubles pickleball match played to 11, with serves, dinks, drives and smashes"></canvas>
-          </div>
           <div class="hero-status-row">
             <span class="live-chip"><i></i> Session live</span>
             <span class="hero-court-chip" id="heroCourtChip">🏓 2 Courts</span>
@@ -53,36 +50,6 @@
         <button class="btn btn-primary btn-large" id="autoMatchBtn">Generate Matches</button>
       </section>
 
-      <section class="arena-bar" id="arenaBar">
-        <div class="arena-head">
-          <span class="arena-tag">🎲 Pickle Arena <em>side game · play money</em></span>
-          <span class="arena-wallet">₱<b id="arenaBalance">1,000</b></span>
-          <span class="arena-regen" id="arenaRegen">+₱100 in 60:00</span>
-        </div>
-        <div class="arena-setup" id="arenaSetup">
-          <div class="arena-teams" id="arenaTeams" role="group" aria-label="Pick a team">
-            <button type="button" class="arena-team red" data-team="L"><i></i>Red Team</button>
-            <button type="button" class="arena-team blue" data-team="R"><i></i>Blue Team</button>
-          </div>
-          <div class="arena-stake" id="arenaStakeBox">
-            <span class="arena-stake-label">Stake</span>
-            <div class="stake-row">
-              <button type="button" data-stake-step="-50" aria-label="Lower stake">−</button>
-              <b id="arenaStake">100</b>
-              <button type="button" data-stake-step="50" aria-label="Raise stake">+</button>
-            </div>
-            <div class="stake-presets">
-              <button type="button" data-stake="50">50</button>
-              <button type="button" data-stake="100">100</button>
-              <button type="button" data-stake="250">250</button>
-              <button type="button" data-stake="500">500</button>
-              <button type="button" data-stake="all">ALL IN</button>
-            </div>
-          </div>
-          <button type="button" class="btn btn-success arena-start" id="arenaStart">Pick a team</button>
-        </div>
-        <div class="arena-status" id="arenaStatus"></div>
-      </section>
 
       <section class="stats-grid">
         <div class="stat-card"><span>👥</span><div><strong id="playerCount">0</strong><small>Players</small></div></div>
@@ -181,6 +148,49 @@
             <button type="button" class="btn btn-badge" id="badgeBtn">🏅 Get Top 3 Badges</button>
           </div>
           <div id="leaderboard" class="leaderboard empty">No results yet.</div>
+        </div>
+      </div>
+
+      <div id="modalMiniGame" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="miniTitle">
+        <div class="modal-card modal-card-lg">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title">
+            <div><span class="icon">🎮</span><div><h3 id="miniTitle">Mini Game</h3><small>A simulated doubles match, and play-money betting on who wins it</small></div></div>
+          </div>
+          <div class="hero-scene">
+            <canvas id="heroScene" width="200" height="66" role="img"
+              aria-label="Pixel art animation of a doubles pickleball match played to 11, with serves, dinks, drives and smashes"></canvas>
+          </div>
+          <section class="arena-bar" id="arenaBar">
+            <div class="arena-head">
+              <span class="arena-tag">🎲 Pickle Arena <em>side game · play money</em></span>
+              <span class="arena-wallet">₱<b id="arenaBalance">1,000</b></span>
+              <span class="arena-regen" id="arenaRegen">+₱100 in 60:00</span>
+            </div>
+            <div class="arena-setup" id="arenaSetup">
+              <div class="arena-teams" id="arenaTeams" role="group" aria-label="Pick a team">
+                <button type="button" class="arena-team red" data-team="L"><i></i>Red Team</button>
+                <button type="button" class="arena-team blue" data-team="R"><i></i>Blue Team</button>
+              </div>
+              <div class="arena-stake" id="arenaStakeBox">
+                <span class="arena-stake-label">Stake</span>
+                <div class="stake-row">
+                  <button type="button" data-stake-step="-50" aria-label="Lower stake">−</button>
+                  <b id="arenaStake">100</b>
+                  <button type="button" data-stake-step="50" aria-label="Raise stake">+</button>
+                </div>
+                <div class="stake-presets">
+                  <button type="button" data-stake="50">50</button>
+                  <button type="button" data-stake="100">100</button>
+                  <button type="button" data-stake="250">250</button>
+                  <button type="button" data-stake="500">500</button>
+                  <button type="button" data-stake="all">ALL IN</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-success arena-start" id="arenaStart">Pick a team</button>
+            </div>
+            <div class="arena-status" id="arenaStatus"></div>
+          </section>
         </div>
       </div>
 
@@ -321,12 +331,12 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=6.5"></script>
-  <script src="hero-scene.js?v=6.5"></script>
-  <script src="arena.js?v=6.5"></script>
-  <script src="qr.js?v=6.5"></script>
-  <script src="sha256.js?v=6.5"></script>
-  <script src="badge-core.js?v=6.5"></script>
-  <script src="badges.js?v=6.5"></script>
+  <script src="app.js?v=6.6"></script>
+  <script src="hero-scene.js?v=6.6"></script>
+  <script src="arena.js?v=6.6"></script>
+  <script src="qr.js?v=6.6"></script>
+  <script src="sha256.js?v=6.6"></script>
+  <script src="badge-core.js?v=6.6"></script>
+  <script src="badges.js?v=6.6"></script>
 </body>
 </html>

@@ -1,4 +1,10 @@
-# PickleMatch v6.5 — Batch Winners
+# PickleMatch v6.6 — Mini Game Tab
+
+## What changed in v6.6
+- New **🎮 Mini game** tab in the menu, between Leaderboard and History. The **simulated doubles match** and the **Pickle Arena** betting game both live there now.
+- The main page is back to the job it is for: the hero is the heading, the session chips and Generate Matches, then the stats, matches and player list. Nothing of the organiser's workflow moved.
+- Moving the animation behind a tab made it cheaper too — it was already set to stop drawing when scrolled out of view, so it now idles whenever the tab is closed and picks up when you open it.
+- **A bet still settles with the tab closed.** A riding stake holds the match running regardless of whether the animation is on screen, so you can place a bet, close the tab, run your session, and come back to the result. Verified: bet placed, tab closed, score kept advancing, and it paid out while still closed.
 
 ## What changed in v6.5
 - The Top List is now organised into **numbered batches**, one per published session, newest first:
@@ -133,7 +139,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.5`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.6`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero
