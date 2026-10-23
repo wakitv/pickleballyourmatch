@@ -11,7 +11,8 @@
   from an official event. The verify screen says as much.
 */
 (function () {
-  const PREFIX = "PM2";                  // payload format marker
+  const PREFIX = "PM3";                  // payload format marker
+  const BG_SRC = "badge-bg.webp";
   const W = 680, H = 960;
 
   /* ---------- small helpers ---------- */
@@ -51,34 +52,29 @@
       .map((p, i) => ({
         rank: i + 1,
         name: clean(p.name),
-        score: Math.round(performanceScore(p) * 100),
-        games: Number(p.games) || 0,
         wins: Number(p.wins) || 0,
-        losses: Number(p.losses) || 0,
-        rating: (Number(p.rating) || 0).toFixed(2),
-        pts: diff[p.id] || 0
+        losses: Number(p.losses) || 0
       }));
   }
 
   const shortDay = iso => iso.slice(2).replace(/-/g, "");        // 2026-10-23 -> 261023
   const longDay = s6 => /^\d{6}$/.test(s6) ? `20${s6.slice(0,2)}-${s6.slice(2,4)}-${s6.slice(4)}` : s6;
 
+  // The badge shows rank, name and W/L, so that is all the QR carries — which
+  // also keeps the symbol a version or two smaller.
   function payloadFor(e, day, sid) {
-    // Rating travels as hundredths so it costs 3 characters, not 4.
-    const rating100 = Math.round(Number(e.rating) * 100);
-    return [PREFIX, e.rank, e.name, e.score, e.games, e.wins, e.losses, rating100, shortDay(day), sid].join("|");
+    return [PREFIX, e.rank, e.name, e.wins, e.losses, shortDay(day), sid].join("|");
   }
   function parsePayload(text) {
     const parts = String(text).split("|");
-    if (parts.length !== 11 || parts[0] !== PREFIX) return null;
+    if (parts.length !== 8 || parts[0] !== PREFIX) return null;
     const check = parts.pop();
     const body = parts.join("|");
-    const [, rank, name, score, games, wins, losses, rating100, day6, sid] = parts;
+    const [, rank, name, wins, losses, day6, sid] = parts;
     return {
       ok: checkOf(body) === check,
-      rank: Number(rank), name, score: Number(score), games: Number(games),
-      wins: Number(wins), losses: Number(losses),
-      rating: (Number(rating100) / 100).toFixed(2), day: longDay(day6), sid, check
+      rank: Number(rank), name, wins: Number(wins), losses: Number(losses),
+      day: longDay(day6), sid, check
     };
   }
 
@@ -89,9 +85,21 @@
     if (location.protocol === "http:" || location.protocol === "https:") {
       return `${location.origin}${location.pathname}#badge=${b64uEnc(signed)}`;
     }
-    return `PICKLEMATCH TOP ${e.rank} | ${e.name} | Score ${e.score} | ${e.games} games | ${day} | ${codeLabel(e.rank, checkOf(signed.slice(0, signed.lastIndexOf("|"))))}`;
+    return `PICKLEMATCH TOP ${e.rank} | ${e.name} | ${e.wins}W-${e.losses}L | ${day} | ${codeLabel(e.rank, checkOf(signed.slice(0, signed.lastIndexOf("|"))))}`;
   }
   const codeLabel = (rank, check) => `T${rank}-${check}`;
+
+  /* ---------- background art ---------- */
+  let bgImage = null, bgTried = false;
+  function loadBackground() {
+    if (bgTried) return Promise.resolve(bgImage);
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => { bgTried = true; bgImage = img; resolve(img); };
+      img.onerror = () => { bgTried = true; resolve(null); };   // badge still works without it
+      img.src = BG_SRC;
+    });
+  }
 
   /* ---------- drawing ---------- */
   function roundRect(g, x, y, w, h, r) {
@@ -127,22 +135,10 @@
       g.beginPath(); g.arc(x, cy, w * 0.07, 0, Math.PI * 2); g.fill();
     });
   }
-  // A stylised laurel branch; side = -1 curves left, +1 right.
-  function laurel(g, cx, cy, h, side, fill) {
-    g.fillStyle = fill;
-    for (let i = 0; i < 7; i++) {
-      const t = i / 6;
-      const x = cx + side * (18 + Math.sin(t * Math.PI) * 26);
-      const y = cy - h / 2 + t * h;
-      const len = 20 - Math.abs(t - 0.5) * 16;
-      g.save();
-      g.translate(x, y);
-      g.rotate(side * (-0.9 + t * 0.7));
-      g.beginPath();
-      g.ellipse(side * len * 0.5, 0, len * 0.55, 6.5, 0, 0, Math.PI * 2);
-      g.fill();
-      g.restore();
-    }
+  // Text over artwork needs a soft dark halo to stay readable.
+  function withHalo(g, on) {
+    g.shadowColor = on ? "rgba(0,0,0,.9)" : "transparent";
+    g.shadowBlur = on ? 10 : 0;
   }
 
   function drawBadge(cv, e, qr, day, sid, code) {
@@ -150,9 +146,27 @@
     const rank = RANKS[e.rank - 1];
     cv.width = W; cv.height = H;
 
-    // Backdrop
+    // Backdrop: the court art, then a scrim so the gold text still reads.
     g.fillStyle = "#07090c";
     g.fillRect(0, 0, W, H);
+    if (bgImage) {
+      const scale = Math.max(W / bgImage.width, H / bgImage.height);
+      const dw = bgImage.width * scale, dh = bgImage.height * scale;
+      g.save();
+      g.globalAlpha = 0.85;
+      g.drawImage(bgImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      g.restore();
+      g.fillStyle = "rgba(7,9,12,.56)";
+      g.fillRect(0, 0, W, H);
+      // Extra cover at the top and bottom, where the text sits.
+      const veil = g.createLinearGradient(0, 0, 0, H);
+      veil.addColorStop(0, "rgba(7,9,12,.82)");
+      veil.addColorStop(0.34, "rgba(7,9,12,.18)");
+      veil.addColorStop(0.62, "rgba(7,9,12,.42)");
+      veil.addColorStop(1, "rgba(7,9,12,.88)");
+      g.fillStyle = veil;
+      g.fillRect(0, 0, W, H);
+    }
     const glow = g.createRadialGradient(W / 2, 285, 20, W / 2, 285, 470);
     glow.addColorStop(0, "rgba(246,212,74,.16)");
     glow.addColorStop(1, "rgba(0,0,0,0)");
@@ -168,9 +182,8 @@
     roundRect(g, 36, 36, W - 72, H - 72, 30); g.stroke();
 
     const gold = goldFill(g, 68, 340, rank.gold);
+    withHalo(g, true);
     crown(g, W / 2, 64, 108, gold);
-    laurel(g, W / 2 - 170, 262, 170, -1, "rgba(246,212,74,.5)");
-    laurel(g, W / 2 + 170, 262, 170, 1, "rgba(246,212,74,.5)");
 
     g.textAlign = "center";
     g.fillStyle = gold;
@@ -191,26 +204,23 @@
     g.fillStyle = "#ffffff";
     g.fillText(e.name, W / 2, 382);
 
-    // Stats strip
-    const stats = [["SCORE", e.score], ["GAMES", e.games], ["W / L", `${e.wins}-${e.losses}`], ["RATING", e.rating]];
-    const bw = 134, gap = 12, total = stats.length * bw + (stats.length - 1) * gap;
-    stats.forEach(([label, value], i) => {
-      const x = (W - total) / 2 + i * (bw + gap);
-      g.fillStyle = "rgba(255,255,255,.05)";
-      roundRect(g, x, 414, bw, 82, 14); g.fill();
-      g.strokeStyle = "rgba(246,212,74,.22)"; g.lineWidth = 1;
-      roundRect(g, x, 414, bw, 82, 14); g.stroke();
-      g.fillStyle = "#9bb0a4";
-      g.font = "700 14px 'DM Sans', system-ui, sans-serif";
-      g.fillText(label, x + bw / 2, 441);
-      g.fillStyle = gold;
-      g.font = "800 32px 'Bricolage Grotesque', system-ui, sans-serif";
-      g.fillText(String(value), x + bw / 2, 478);
-    });
+    // Win-loss record, the one stat the badge carries.
+    const bw = 280, bh = 92, bx = (W - bw) / 2, by = 408;
+    g.fillStyle = "rgba(7,9,12,.72)";
+    roundRect(g, bx, by, bw, bh, 16); g.fill();
+    g.strokeStyle = "rgba(246,212,74,.3)"; g.lineWidth = 1.5;
+    roundRect(g, bx, by, bw, bh, 16); g.stroke();
+    g.fillStyle = "#9bb0a4";
+    g.font = "700 15px 'DM Sans', system-ui, sans-serif";
+    g.fillText("WINS / LOSSES", W / 2, by + 30);
+    g.fillStyle = gold;
+    g.font = "800 42px 'Bricolage Grotesque', system-ui, sans-serif";
+    g.fillText(`${e.wins} - ${e.losses}`, W / 2, by + 74);
 
     // QR, on white with a quiet zone so it actually scans. The module size is
     // derived from a fixed target box, because the symbol's version — and so
     // its module count — changes with the length of the payload.
+    withHalo(g, false);   // the QR must stay hard-edged
     const quiet = 4, target = 300;
     const qrPx = Math.max(3, Math.floor(target / (qr.size + quiet * 2)));
     const box = (qr.size + quiet * 2) * qrPx;
@@ -223,16 +233,18 @@
     }
 
     const afterQr = qy + box + 28;
-    g.fillStyle = "#9bb0a4";
+    withHalo(g, true);
+    g.fillStyle = "#dfe9e3";
     g.font = "700 15px 'DM Sans', system-ui, sans-serif";
     g.fillText("SCAN TO VERIFY", W / 2, afterQr);
     g.fillStyle = gold;
     g.font = "800 29px ui-monospace, 'DM Sans', monospace";
     g.fillText(code, W / 2, afterQr + 38);
 
-    g.fillStyle = "rgba(233,246,238,.65)";
+    g.fillStyle = "rgba(233,246,238,.8)";
     g.font = "600 16px 'DM Sans', system-ui, sans-serif";
     g.fillText(`PICKLEMATCH  ·  ${day}  ·  SESSION ${sid}`, W / 2, H - 40);
+    withHalo(g, false);
   }
 
   /* ---------- modal ---------- */
@@ -270,6 +282,7 @@
       </figure>`).join("");
 
     showHint();
+    await loadBackground();
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch { /* ignore */ } }
     top.forEach((b, i) => {
       const cv = document.getElementById("badgeCv" + i);
@@ -277,19 +290,38 @@
       drawBadge(cv, b.e, QR.encode(b.qrText, "M"), b.day, b.sid, b.code);
     });
 
+    // A locked canvas means Save PNG cannot work; say so before it is clicked.
+    const probe = document.getElementById("badgeCv0");
+    if (probe) {
+      try { probe.getContext("2d").getImageData(0, 0, 1, 1); }
+      catch {
+        const el = document.getElementById("badgeHint");
+        if (el) {
+          el.className = "badge-hint warn";
+          el.textContent = "The badge artwork cannot be read back when the page is opened straight from a file, "
+            + "so Save PNG will not work here. Run serve.bat, or open the GitHub Pages link.";
+        }
+      }
+    }
+
     list.querySelectorAll("[data-badge]").forEach(btn => {
       btn.addEventListener("click", () => {
         const b = top[Number(btn.dataset.badge)];
         const cv = document.getElementById("badgeCv" + btn.dataset.badge);
         if (!cv || !cv.toBlob) return;
-        cv.toBlob(blob => {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = `picklematch-top${b.e.rank}-${b.e.name.replace(/[^\w]+/g, "-").toLowerCase()}.png`;
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        }, "image/png");
-        toast(`Top ${b.e.rank} badge saved.`);
+        try {
+          cv.toBlob(blob => {
+            if (!blob) return toast("The badge image could not be created.");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `picklematch-top${b.e.rank}-${b.e.name.replace(/[^\w]+/g, "-").toLowerCase()}.png`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            toast(`Top ${b.e.rank} badge saved.`);
+          }, "image/png");
+        } catch {
+          toast("Saving is blocked when the page is opened as a file. Run serve.bat, or use the GitHub Pages link.");
+        }
       });
     });
   }
@@ -334,10 +366,7 @@
         <div class="verify-card">
           <div class="verify-rank">${rank.medal} TOP ${info.rank} · ${rank.word}</div>
           <div class="verify-name">${esc(info.name)}</div>
-          <div class="verify-stats">
-            <span>Score <b>${info.score}</b></span><span>Games <b>${info.games}</b></span>
-            <span>W/L <b>${info.wins}-${info.losses}</b></span><span>Rating <b>${esc(info.rating)}</b></span>
-          </div>
+          <div class="verify-stats"><span>Wins / Losses <b>${info.wins} - ${info.losses}</b></span></div>
           <div class="verify-meta">${esc(info.day)} · session ${esc(info.sid)} · code ${esc(codeLabel(info.rank, info.check))}</div>
         </div>
         <p class="verify-note">${info.ok

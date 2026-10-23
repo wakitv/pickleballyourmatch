@@ -1,4 +1,11 @@
-# PickleMatch v5.8 — Runs on GitHub Pages
+# PickleMatch v6.0 — Badges on Court Artwork
+
+## What changed in v6.0
+- **Badges now sit on the pickleball artwork** instead of a plain black crest. The illustration fills the badge, dimmed under a scrim that is heaviest at the top and bottom so the gold lettering, the record and the QR all stay readable, and the text carries a soft dark halo over the busier middle.
+- **W/L is the only stat on a badge now.** Score, games and rating are gone from the badge, from the QR payload and from the Badge check screen, so what you scan matches what you see.
+- Dropping three stats made the QR payload much shorter, which keeps a typical GitHub Pages URL at a low QR version — the modules stay chunky and easy to scan. The decorative laurels were removed too; the artwork carries that job now.
+- **Saving still works, and says so when it cannot.** Drawing an image into a canvas locks it against read-back when the page is opened straight from a file, which would break Save PNG. The badge screen now checks for that as it draws and explains the fix (run `serve.bat`, or use the Pages link) instead of failing on the click. Served or published, saving works normally.
+- `badge-bg.webp` is the artwork, resized to 1000x1000 and re-encoded to 140 KB from the 375 KB original.
 
 ## What changed in v5.8
 ### Ready to publish on GitHub Pages
@@ -74,7 +81,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=5.8`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.0`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero
