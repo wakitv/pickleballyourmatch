@@ -1,7 +1,44 @@
 {
   "app": "PickleMatch",
   "format": 1,
-  "updated": "",
-  "fingerprint": "",
-  "entries": []
+  "updated": "2026-10-23",
+  "fingerprint": "322fbb5032dcb26afa0797c8382c3703",
+  "entries": [
+    {
+      "id": "AEF45-T1-88YFO1",
+      "batch": 1,
+      "rank": 1,
+      "name": "test1",
+      "wins": 1,
+      "losses": 0,
+      "day": "2026-10-23",
+      "session": "AEF45",
+      "code": "T1-88YFO1",
+      "hash": "3117a96f59ae3871b561eaeead2a6c46e33a8f36ec3a001fed92be2f7f3289eb"
+    },
+    {
+      "id": "AEF45-T2-YG519L",
+      "batch": 1,
+      "rank": 2,
+      "name": "test2",
+      "wins": 1,
+      "losses": 0,
+      "day": "2026-10-23",
+      "session": "AEF45",
+      "code": "T2-YG519L",
+      "hash": "9f677c14c269050ef256e6f69e61d1d28ae94ba2a0be8a5cf67f2f0b25dc05fc"
+    },
+    {
+      "id": "AEF45-T3-GLHNB9",
+      "batch": 1,
+      "rank": 3,
+      "name": "test3",
+      "wins": 0,
+      "losses": 1,
+      "day": "2026-10-23",
+      "session": "AEF45",
+      "code": "T3-GLHNB9",
+      "hash": "1340847592c6b24b509466469d5c5f014090c3b557003ff31f47e8ad7d1f0486"
+    }
+  ]
 }
