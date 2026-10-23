@@ -1,4 +1,36 @@
-# PickleMatch v6.0 — Badges on Court Artwork
+# PickleMatch v6.3 — Public Top List
+
+## What changed in v6.3
+### Scanning a badge opens a public Top List page
+Badge QR codes no longer open the app — they open **`/toplist/`**, a page of its own that shows the scanned badge's result and the published winners list it is checked against. On GitHub Pages that is `https://<user>.github.io/<repo>/toplist/`.
+
+A scan lands on one of five answers, so nothing is ambiguous:
+
+| | |
+|---|---|
+| **Official** | The badge is intact and appears on the published list |
+| **Genuine, not published** | The badge is intact but this result has not been published yet |
+| **Does not match** | A badge with this code is listed, but with different details |
+| **Altered** | The result on the badge does not match the checksum in its QR |
+| **Not a badge** | The link carries nothing we can read |
+
+### How "no one can edit it" actually works
+Worth being plain about this, because it shapes the design. PickleMatch is a static site with no server, so a badge **cannot** be cryptographically signed: any key shipped to a browser is public, and a signature anyone can forge proves nothing. Pretending otherwise would be security theatre.
+
+What does work, and is genuinely strong:
+
+- **The published list is the record.** `toplist/toplist.json` lives in the repository, so changing it means pushing a commit. That is a real boundary — GitHub accounts, not JavaScript — and every change is in the repository's history.
+- **Every entry is fingerprinted.** Each row carries a SHA-256 hash of its own contents, and the list carries a hash over all of them. The Top List page recomputes both rather than trusting the file, so an edited list is flagged on sight. Tested by editing a published record: the scan was rejected *and* the fingerprint was reported as not matching.
+- **Every badge carries a checksum**, so an edited badge is caught before the list is even consulted. Renames, inflated records and rank promotions were all rejected in testing.
+- **Every entry has a unique id** — session plus badge code — so two winners can never collide.
+
+`sha256.js` implements SHA-256 in-house (checked against the standard vectors and 600 random inputs cross-checked against Node, including the million-character case) because `crypto.subtle` only exists in a secure context, and the list gets read over plain http on the local network at a court.
+
+### Publish winners
+**Publish winners** in the Top 3 Badges screen merges the session's podium into the existing list, recomputes the hashes, and saves a `toplist.json`. Replace `toplist/toplist.json` with it and push. The app deliberately cannot write to the repository itself — that is what makes the list trustworthy.
+
+### Tap a badge to enlarge it
+Tapping a badge opens it full screen so a player can photograph or screenshot their own, with the name and code beneath it. Escape, the close button, or a tap outside dismisses it.
 
 ## What changed in v6.0
 - **Badges now sit on the pickleball artwork** instead of a plain black crest. The illustration fills the badge, dimmed under a scrim that is heaviest at the top and bottom so the gold lettering, the record and the QR all stay readable, and the text carries a soft dark halo over the busier middle.
@@ -81,7 +113,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.0`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.3`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.0">
+  <link rel="stylesheet" href="style.css?v=6.3">
 </head>
 <body>
   <div class="app-shell">
@@ -20,7 +20,7 @@
           <p>Smart Pickleball Matchmaker</p>
         </div>
       </div>
-      <div class="top-actions"><button class="btn btn-ghost" id="importBtn" type="button" title="Load a saved session file">Import</button><button class="btn btn-ghost" id="exportBtn" type="button" title="Save the whole session to a file">Export</button><input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" tabindex="-1" aria-hidden="true"><button class="btn btn-ghost" id="resetBtn" type="button">Reset</button></div>
+      <div class="top-actions"><button class="btn btn-ghost" id="importBtn" type="button" title="Load a saved session file">Import</button><button class="btn btn-ghost" id="exportBtn" type="button" title="Save the whole session to a file">Export</button><input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" tabindex="-1" aria-hidden="true"><a class="btn btn-ghost" href="toplist/" title="Published winners">🏆 Top List</a><button class="btn btn-ghost" id="resetBtn" type="button">Reset</button></div>
     </header>
 
     <div class="menu-wrap">
@@ -188,20 +188,22 @@
         <div class="modal-card modal-card-lg">
           <button class="modal-close" type="button" aria-label="Close">×</button>
           <div class="panel-title">
-            <div><span class="icon">🏅</span><div><h3 id="badgeTitle">Top 3 Badges</h3><small>Save and share — each badge carries a QR that opens its own verify screen</small></div></div>
+            <div><span class="icon">🏅</span><div><h3 id="badgeTitle">Top 3 Badges</h3><small>Tap a badge to enlarge it — each QR opens the public Top List</small></div></div>
+            <button type="button" class="btn btn-ghost" id="badgePublishBtn" title="Save a toplist.json to commit">⬆ Publish winners</button>
           </div>
           <div id="badgeList" class="badge-list empty">No finished matches yet.</div>
           <p id="badgeHint" class="badge-hint"></p>
         </div>
       </div>
 
-      <div id="modalVerify" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="verifyTitle">
-        <div class="modal-card">
-          <button class="modal-close" type="button" aria-label="Close">×</button>
-          <div class="panel-title">
-            <div><span class="icon">🔎</span><div><h3 id="verifyTitle">Badge check</h3><small>Scanned from a PickleMatch badge</small></div></div>
+      <div id="badgeZoom" class="badge-zoom hidden" role="dialog" aria-modal="true" aria-label="Badge, enlarged">
+        <div class="badge-zoom-inner">
+          <button type="button" class="modal-close" id="badgeZoomClose" aria-label="Close">×</button>
+          <canvas id="badgeZoomCanvas"></canvas>
+          <div class="badge-zoom-meta">
+            <b id="badgeZoomName"></b><span id="badgeZoomCode"></span>
+            <em>Screenshot or photograph this badge</em>
           </div>
-          <div id="verifyBody"></div>
         </div>
       </div>
 
@@ -319,10 +321,12 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=6.0"></script>
-  <script src="hero-scene.js?v=6.0"></script>
-  <script src="arena.js?v=6.0"></script>
-  <script src="qr.js?v=6.0"></script>
-  <script src="badges.js?v=6.0"></script>
+  <script src="app.js?v=6.3"></script>
+  <script src="hero-scene.js?v=6.3"></script>
+  <script src="arena.js?v=6.3"></script>
+  <script src="qr.js?v=6.3"></script>
+  <script src="sha256.js?v=6.3"></script>
+  <script src="badge-core.js?v=6.3"></script>
+  <script src="badges.js?v=6.3"></script>
 </body>
 </html>

@@ -11,23 +11,13 @@
   from an official event. The verify screen says as much.
 */
 (function () {
-  const PREFIX = "PM3";                  // payload format marker
   const BG_SRC = "badge-bg.webp";
+  const BC = window.BadgeCore;
   const W = 680, H = 960;
 
   /* ---------- small helpers ---------- */
-  function hash32(str) {                 // FNV-1a, a check digit not a signature
-    let h = 0x811c9dc5;
-    for (let i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-    return h >>> 0;
-  }
-  const checkOf = payload => hash32(payload).toString(36).toUpperCase().padStart(7, "0").slice(-6);
-  const b64uEnc = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const b64uDec = s => decodeURIComponent(escape(atob(String(s).replace(/-/g, "+").replace(/_/g, "/"))));
-  const clean = s => String(s == null ? "" : s).replace(/[|]/g, "/").trim();
+  const checkOf = BC.checkOf, b64uEnc = BC.b64uEnc, codeLabel = BC.codeLabel;
+  const clean = v => String(v == null ? "" : v).replace(/[|]/g, "/").trim();
 
   const RANKS = [
     { word: "CHAMPION",   gold: ["#fff4c2", "#f6d44a", "#b8860b"], medal: "\u{1F947}" },
@@ -42,7 +32,7 @@
     const done = state.rounds.filter(r => r.status === "completed");
     const seed = done.map(r => `${r.id}:${r.scoreA}-${r.scoreB}`).join(",")
       + "#" + activePlayers().map(p => p.name).sort().join(",");
-    return hash32(seed).toString(36).toUpperCase().slice(0, 5);
+    return sha256(seed).slice(0, 5).toUpperCase();
   }
 
   function topThree() {
@@ -57,37 +47,19 @@
       }));
   }
 
-  const shortDay = iso => iso.slice(2).replace(/-/g, "");        // 2026-10-23 -> 261023
-  const longDay = s6 => /^\d{6}$/.test(s6) ? `20${s6.slice(0,2)}-${s6.slice(2,4)}-${s6.slice(4)}` : s6;
-
-  // The badge shows rank, name and W/L, so that is all the QR carries — which
-  // also keeps the symbol a version or two smaller.
-  function payloadFor(e, day, sid) {
-    return [PREFIX, e.rank, e.name, e.wins, e.losses, shortDay(day), sid].join("|");
+  // The published winners page, which is where a scanned badge should land.
+  function toplistUrl() {
+    return location.origin + location.pathname.replace(/[^/]*$/, "") + "toplist/";
   }
-  function parsePayload(text) {
-    const parts = String(text).split("|");
-    if (parts.length !== 8 || parts[0] !== PREFIX) return null;
-    const check = parts.pop();
-    const body = parts.join("|");
-    const [, rank, name, wins, losses, day6, sid] = parts;
-    return {
-      ok: checkOf(body) === check,
-      rank: Number(rank), name, wins: Number(wins), losses: Number(losses),
-      day: longDay(day6), sid, check
-    };
-  }
-
-  // What the QR actually carries. Over http(s) it is a link back into this app
-  // so a phone can open the verify screen; from a file:// page there is no URL
-  // worth sharing, so it carries readable text instead.
-  function qrTextFor(signed, e, day) {
+  // What the QR actually carries. Over http(s) it is a link to the Top List
+  // page; from a file:// page there is no URL worth sharing, so it carries
+  // readable text instead.
+  function qrTextFor(signed, e, day, code) {
     if (location.protocol === "http:" || location.protocol === "https:") {
-      return `${location.origin}${location.pathname}#badge=${b64uEnc(signed)}`;
+      return `${toplistUrl()}#b=${b64uEnc(signed)}`;
     }
-    return `PICKLEMATCH TOP ${e.rank} | ${e.name} | ${e.wins}W-${e.losses}L | ${day} | ${codeLabel(e.rank, checkOf(signed.slice(0, signed.lastIndexOf("|"))))}`;
+    return `PICKLEMATCH TOP ${e.rank} | ${e.name} | ${e.wins}W-${e.losses}L | ${day} | ${code}`;
   }
-  const codeLabel = (rank, check) => `T${rank}-${check}`;
 
   /* ---------- background art ---------- */
   let bgImage = null, bgTried = false;
@@ -252,9 +224,8 @@
     const day = new Date().toISOString().slice(0, 10);
     const sid = sessionId();
     return topThree().map(e => {
-      const body = payloadFor(e, day, sid);
-      const signed = `${body}|${checkOf(body)}`;
-      return { e, day, sid, signed, code: codeLabel(e.rank, checkOf(body)), qrText: qrTextFor(signed, e, day) };
+      const { signed, code } = BC.sign(e, day, sid);
+      return { e, day, sid, signed, code, qrText: qrTextFor(signed, e, day, code) };
     });
   }
 
@@ -272,8 +243,10 @@
     list.className = "badge-list";
     list.innerHTML = top.map((b, i) => `
       <figure class="badge-item">
-        <canvas id="badgeCv${i}" width="${W}" height="${H}" role="img"
-          aria-label="Top ${b.e.rank} badge for ${esc(b.e.name)}"></canvas>
+        <button type="button" class="badge-zoom-btn" data-zoom="${i}" title="Tap to enlarge">
+          <canvas id="badgeCv${i}" width="${W}" height="${H}" role="img"
+            aria-label="Top ${b.e.rank} badge for ${esc(b.e.name)} — tap to enlarge"></canvas>
+        </button>
         <figcaption>
           <b>${esc(b.e.name)}</b>
           <span>${b.code}</span>
@@ -304,6 +277,11 @@
       }
     }
 
+    // Tap a badge to blow it up, so a player can photograph their own.
+    list.querySelectorAll("[data-zoom]").forEach(btn => {
+      btn.addEventListener("click", () => openZoom(Number(btn.dataset.zoom), top));
+    });
+
     list.querySelectorAll("[data-badge]").forEach(btn => {
       btn.addEventListener("click", () => {
         const b = top[Number(btn.dataset.badge)];
@@ -325,6 +303,35 @@
       });
     });
   }
+
+  /* ---------- full-screen badge ---------- */
+  function openZoom(index, top) {
+    const src = document.getElementById("badgeCv" + index);
+    const b = top[index];
+    if (!src || !b) return;
+    const wrap = document.getElementById("badgeZoom");
+    const big = document.getElementById("badgeZoomCanvas");
+    big.width = src.width; big.height = src.height;
+    big.getContext("2d").drawImage(src, 0, 0);
+    document.getElementById("badgeZoomName").textContent = `Top ${b.e.rank} · ${b.e.name}`;
+    document.getElementById("badgeZoomCode").textContent = b.code;
+    wrap.classList.remove("hidden");
+    wrap.dataset.index = String(index);
+    document.getElementById("badgeZoomClose").focus();
+  }
+  function closeZoom() {
+    document.getElementById("badgeZoom").classList.add("hidden");
+  }
+  document.getElementById("badgeZoomClose").addEventListener("click", closeZoom);
+  document.getElementById("badgeZoom").addEventListener("click", e => {
+    if (e.target.id === "badgeZoom") closeZoom();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !document.getElementById("badgeZoom").classList.contains("hidden")) {
+      e.stopImmediatePropagation();
+      closeZoom();
+    }
+  }, true);
 
   // Says where a scanned badge will actually land, because a QR made at
   // localhost or from a file cannot open on anyone else's phone.
@@ -349,44 +356,57 @@
     }
   }
 
-  /* ---------- verify (opened by scanning a badge) ---------- */
-  function showVerify(raw) {
-    let info = null;
-    try { info = parsePayload(b64uDec(raw)); } catch { info = null; }
-    const body = document.getElementById("verifyBody");
-    if (!info) {
-      body.innerHTML = `<div class="verify-head bad">✕ Not a PickleMatch badge</div>
-        <p class="verify-note">This link does not carry badge details we can read.</p>`;
-    } else {
-      const rank = RANKS[Math.min(3, Math.max(1, info.rank)) - 1];
-      body.innerHTML = `
-        <div class="verify-head ${info.ok ? "good" : "bad"}">
-          ${info.ok ? "✓ Badge details check out" : "✕ Check code does not match"}
-        </div>
-        <div class="verify-card">
-          <div class="verify-rank">${rank.medal} TOP ${info.rank} · ${rank.word}</div>
-          <div class="verify-name">${esc(info.name)}</div>
-          <div class="verify-stats"><span>Wins / Losses <b>${info.wins} - ${info.losses}</b></span></div>
-          <div class="verify-meta">${esc(info.day)} · session ${esc(info.sid)} · code ${esc(codeLabel(info.rank, info.check))}</div>
-        </div>
-        <p class="verify-note">${info.ok
-          ? "The details above match the badge's check code, so they have not been altered since the badge was made."
-          : "The details do not match the check code on this badge, so it has been changed or rebuilt."}
-          PickleMatch runs entirely in your browser, so this confirms the badge is intact — it is not proof of an official result.</p>`;
-    }
-    closeAllModals();
-    document.getElementById("modalVerify").classList.remove("hidden");
-  }
+  /* ---------- publishing to the Top List ---------- */
+  // Merges this session's podium into the published record and hands back a
+  // toplist.json to commit. The app cannot write to the repository itself, and
+  // that is the point: the list only changes when someone pushes.
+  async function publishWinners() {
+    const top = badgeData();
+    if (!top.length) return toast("No finished matches yet, so there are no winners to publish.");
 
-  function checkHash() {
-    const m = /[#&]badge=([A-Za-z0-9_-]+)/.exec(location.hash || "");
-    if (!m) return;
-    history.replaceState(null, "", location.pathname + location.search);
-    showVerify(m[1]);
+    let current = { app: "PickleMatch", format: 1, entries: [] };
+    try {
+      const res = await fetch(toplistUrl() + "toplist.json?t=" + Date.now(), { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && Array.isArray(json.entries)) current = json;
+      }
+    } catch { /* first publish, or opened as a file: start from an empty list */ }
+
+    const byId = new Map(current.entries.map(e => [e.id, e]));
+    let added = 0;
+    top.forEach(b => {
+      const info = BC.parse(b.signed);
+      const id = BC.entryId(info);
+      const entry = {
+        id, rank: info.rank, name: info.name, wins: info.wins, losses: info.losses,
+        day: info.day, session: info.session, code: info.code
+      };
+      entry.hash = sha256(BC.canonical(entry));
+      if (!byId.has(id)) added++;
+      byId.set(id, entry);
+    });
+
+    const entries = [...byId.values()].sort((a, b) =>
+      b.day.localeCompare(a.day) || a.session.localeCompare(b.session) || a.rank - b.rank);
+    const out = {
+      app: "PickleMatch", format: 1,
+      updated: new Date().toISOString().slice(0, 10),
+      fingerprint: sha256(entries.map(e => sha256(BC.canonical(e))).join("\n")).slice(0, 32),
+      entries
+    };
+
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "toplist.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast(`toplist.json saved — ${added} new winner${added === 1 ? "" : "s"}, ${entries.length} in total. `
+      + "Replace toplist/toplist.json with it and push to publish.");
   }
 
   /* ---------- wiring ---------- */
   document.getElementById("badgeBtn").addEventListener("click", openBadges);
-  window.addEventListener("hashchange", checkHash);
-  checkHash();
+  document.getElementById("badgePublishBtn").addEventListener("click", publishWinners);
 })();

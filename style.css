@@ -139,6 +139,70 @@ h1,h2,h3,p{margin:0}
   color:var(--dim);font-size:12px;line-height:1.5}
 .badge-hint:empty{display:none}
 .badge-hint.warn{background:rgba(244,197,66,.1);border:1px solid rgba(244,197,66,.3);color:var(--amber)}
+.badge-zoom-btn{display:block;width:100%;padding:0;border:0;background:none;border-radius:12px;cursor:zoom-in}
+.badge-zoom-btn:hover canvas{filter:brightness(1.06)}
+.badge-zoom-btn:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+
+/* ---------- enlarged badge ---------- */
+.badge-zoom{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:20px;
+  background:rgba(3,8,5,.92);backdrop-filter:blur(3px)}
+.badge-zoom-inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;
+  max-height:100%;max-width:min(560px,100%)}
+.badge-zoom-inner .modal-close{position:absolute;top:-6px;right:-6px;z-index:2}
+.badge-zoom canvas{display:block;max-width:100%;max-height:78vh;width:auto;height:auto;
+  border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.badge-zoom-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 12px;text-align:center}
+.badge-zoom-meta b{font-family:var(--display);font-size:17px;color:var(--text)}
+.badge-zoom-meta span{padding:4px 10px;border-radius:999px;background:rgba(246,212,74,.14);
+  color:#f6d44a;font-size:12px;font-weight:800;font-family:ui-monospace,monospace}
+.badge-zoom-meta em{flex-basis:100%;font-style:normal;color:var(--dim);font-size:12px}
+
+/* ---------- Top List page ---------- */
+.toplist-page .brand-mark{background:linear-gradient(140deg,#f6d44a,#c9960c)}
+.toplist-body{display:flex;flex-direction:column;gap:14px}
+.toplist-body.empty{padding:26px;border-radius:14px;border:1px dashed var(--line-2);
+  color:var(--dim);text-align:center;font-size:13px}
+.toplist-session{padding:12px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line)}
+.toplist-session-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:10px;
+  padding-bottom:8px;border-bottom:1px solid var(--line)}
+.toplist-session-head b{font-family:var(--display);font-size:15px}
+.toplist-session-head span{color:var(--dim);font-size:11px;font-family:ui-monospace,monospace}
+.toplist-row{display:flex;align-items:center;gap:12px;padding:10px;border-radius:11px}
+.toplist-row+.toplist-row{margin-top:4px}
+.toplist-row.highlight{background:rgba(246,212,74,.12);outline:1px solid rgba(246,212,74,.45)}
+.toplist-medal{font-size:22px;line-height:1}
+.toplist-who{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.toplist-who b{font-family:var(--display);font-size:16px}
+.toplist-who em{font-style:normal;color:var(--muted);font-size:12px;font-weight:700}
+.toplist-code{padding:4px 9px;border-radius:999px;background:rgba(246,212,74,.14);
+  color:#f6d44a;font-size:11px;font-weight:800;font-family:ui-monospace,monospace}
+.trust-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.trust-grid article{padding:14px;border-radius:13px;background:var(--panel-2);border:1px solid var(--line)}
+.trust-grid b{display:block;margin-bottom:6px;font-family:var(--display);font-size:14px;color:var(--lime)}
+.trust-grid p{color:var(--muted);font-size:12.5px;line-height:1.55}
+.fingerprint-line{margin-top:14px;color:var(--dim);font-size:12px}
+.fingerprint-line code{padding:3px 8px;border-radius:7px;background:#081a10;
+  color:var(--mint);font-family:ui-monospace,monospace;font-size:11px;word-break:break-all}
+.fp-mismatch{color:var(--red)}
+
+/* ---------- scanned badge result ---------- */
+.scan-result{margin-bottom:16px;padding:18px;border-radius:18px;border:1px solid var(--line-2);background:var(--panel)}
+.scan-result.good{border-color:rgba(52,209,122,.5);background:linear-gradient(160deg,rgba(52,209,122,.1),var(--panel))}
+.scan-result.warn{border-color:rgba(244,197,66,.5);background:linear-gradient(160deg,rgba(244,197,66,.08),var(--panel))}
+.scan-result.bad{border-color:rgba(255,132,119,.5);background:linear-gradient(160deg,rgba(255,132,119,.08),var(--panel))}
+.scan-head{font-family:var(--display);font-size:19px;font-weight:800}
+.scan-result.good .scan-head{color:var(--green)}
+.scan-result.warn .scan-head{color:var(--amber)}
+.scan-result.bad .scan-head{color:var(--red)}
+.scan-result p{margin-top:12px;color:var(--muted);font-size:13px;line-height:1.55}
+.scan-result a{color:var(--lime)}
+.scan-card{margin-top:14px;padding:18px;border-radius:16px;background:#07090c;
+  border:1px solid rgba(246,212,74,.35);text-align:center}
+.scan-rank{color:#f6d44a;font-family:var(--display);font-size:19px;font-weight:800}
+.scan-name{margin-top:6px;font-family:var(--display);font-size:30px;color:#fff}
+.scan-stats{margin-top:10px;color:var(--muted);font-size:13px}
+.scan-stats b{color:#f6d44a;font-size:17px}
+.scan-meta{margin-top:10px;color:var(--dim);font-size:12px;font-family:ui-monospace,monospace}
 
 /* ---------- badge verify screen ---------- */
 .verify-head{margin-top:4px;padding:12px 14px;border-radius:12px;font-weight:800;font-size:15px}
@@ -438,6 +502,7 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
   .arena-stake{justify-content:space-between}
   .arena-start{margin-left:0;width:100%}
   .badge-list{grid-template-columns:1fr}
+  .trust-grid{grid-template-columns:1fr}
   .hero .btn{width:100%}
   .player-form,.settings-grid,.feature-grid{grid-template-columns:1fr}
   .court-level-cards{grid-template-columns:1fr}
