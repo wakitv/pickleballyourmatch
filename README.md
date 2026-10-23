@@ -1,4 +1,24 @@
-# PickleMatch v6.3 — Public Top List
+# PickleMatch v6.5 — Batch Winners
+
+## What changed in v6.5
+- The Top List is now organised into **numbered batches**, one per published session, newest first:
+
+```
+Batch Winners #2      2026-10-23 · session BBB22
+  🥇 TOP 1   ana     CHAMPION · 4W / 0L
+  🥈 TOP 2   ben     RUNNER-UP · 3W / 1L
+  🥉 TOP 3   cleo    THIRD PLACE · 2W / 2L
+
+Batch Winners #1      2026-10-21 · session AAA11
+  🥇 TOP 1   mark    CHAMPION · 3W / 0L
+  ...
+```
+
+- **Scanning a badge lands on its batch.** The result reads *"Official — Batch Winners #1"*, links straight to that batch, and highlights both the batch and the winner's row.
+- **Publish winners** assigns the batch number: a new session opens the next batch, and re-publishing a session already on the list updates that batch instead of opening a duplicate. Verified both ways — a second session became #3, and re-publishing it reported "0 new winners" and left the count at 9 across 3 batches.
+- The batch number is part of each entry's SHA-256 hash, so it cannot be changed without the fingerprint saying so.
+
+**Note:** this changes the hash format. A `toplist.json` published before v6.5 will report a fingerprint mismatch — press **Publish winners** again to regenerate it.
 
 ## What changed in v6.3
 ### Scanning a badge opens a public Top List page
@@ -113,7 +133,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.3`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.5`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero

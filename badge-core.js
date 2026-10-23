@@ -57,8 +57,11 @@
   // One badge, one id. The check already folds in name, rank, date and
   // session, so prefixing the session keeps ids readable and unique.
   const entryId = info => `${info.session}-${info.code}`;
-  // The exact string an entry's hash is taken over. Order matters; keep it.
-  const canonical = e => [e.id, e.rank, e.name, e.wins, e.losses, e.day, e.session, e.code].join("|");
+  // The exact string an entry's hash is taken over. Everything shown on the
+  // Top List is in here, batch number included, so none of it can be changed
+  // without the hash saying so. Order matters; keep it.
+  const canonical = e =>
+    [e.id, e.batch, e.rank, e.name, e.wins, e.losses, e.day, e.session, e.code].join("|");
 
   window.BadgeCore = {
     PREFIX, checkOf, codeLabel, b64uEnc, b64uDec,

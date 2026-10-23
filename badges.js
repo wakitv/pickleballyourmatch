@@ -374,12 +374,24 @@
     } catch { /* first publish, or opened as a file: start from an empty list */ }
 
     const byId = new Map(current.entries.map(e => [e.id, e]));
+
+    // Each published session becomes a numbered batch. Publishing the same
+    // session twice updates that batch rather than opening a new one.
+    const batchOf = new Map();
+    let highest = 0;
+    current.entries.forEach(e => {
+      const n = Number(e.batch) || 0;
+      if (n) { batchOf.set(e.session, n); highest = Math.max(highest, n); }
+    });
+    const sid = top[0].sid;
+    const batch = batchOf.get(sid) || highest + 1;
+
     let added = 0;
     top.forEach(b => {
       const info = BC.parse(b.signed);
       const id = BC.entryId(info);
       const entry = {
-        id, rank: info.rank, name: info.name, wins: info.wins, losses: info.losses,
+        id, batch, rank: info.rank, name: info.name, wins: info.wins, losses: info.losses,
         day: info.day, session: info.session, code: info.code
       };
       entry.hash = sha256(BC.canonical(entry));
@@ -388,7 +400,7 @@
     });
 
     const entries = [...byId.values()].sort((a, b) =>
-      b.day.localeCompare(a.day) || a.session.localeCompare(b.session) || a.rank - b.rank);
+      (Number(b.batch) || 0) - (Number(a.batch) || 0) || a.rank - b.rank);
     const out = {
       app: "PickleMatch", format: 1,
       updated: new Date().toISOString().slice(0, 10),
@@ -402,8 +414,8 @@
     a.download = "toplist.json";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast(`toplist.json saved — ${added} new winner${added === 1 ? "" : "s"}, ${entries.length} in total. `
-      + "Replace toplist/toplist.json with it and push to publish.");
+    toast(`toplist.json saved — batch #${batch}, ${added} new winner${added === 1 ? "" : "s"}, `
+      + `${entries.length} in total. Replace toplist/toplist.json with it and push to publish.`);
   }
 
   /* ---------- wiring ---------- */

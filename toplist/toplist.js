@@ -37,6 +37,29 @@
     return sha256(entries.map(e => sha256(BadgeCore.canonical(e))).join("\n")).slice(0, 32);
   }
 
+  // Groups entries into numbered batches, highest first. A file written before
+  // batch numbers existed still groups sensibly: its sessions are numbered by
+  // date, oldest first.
+  function groupIntoBatches(entries) {
+    const needsNumbers = entries.some(e => !Number(e.batch));
+    let fallback = new Map();
+    if (needsNumbers) {
+      const sessions = [...new Set(entries.map(e => `${e.day}|${e.session}`))].sort();
+      sessions.forEach((key, i) => fallback.set(key, i + 1));
+    }
+    const numberOf = e => Number(e.batch) || fallback.get(`${e.day}|${e.session}`) || 1;
+
+    const byBatch = new Map();
+    entries.forEach(e => {
+      const n = numberOf(e);
+      if (!byBatch.has(n)) byBatch.set(n, { batch: n, day: e.day, session: e.session, rows: [] });
+      byBatch.get(n).rows.push(e);
+    });
+    return [...byBatch.values()]
+      .map(g => ({ ...g, rows: g.rows.sort((a, b) => a.rank - b.rank) }))
+      .sort((a, b) => b.batch - a.batch);
+  }
+
   function renderList() {
     const body = document.getElementById("listBody");
     const summary = document.getElementById("listSummary");
@@ -73,36 +96,31 @@
         ' <b class="fp-mismatch">does not match the fingerprint stored in the file</b>');
     }
 
-    // Newest sessions first, and the podium in order inside each.
-    const bySession = new Map();
-    data.entries.forEach(e => {
-      const key = `${e.day}|${e.session}`;
-      if (!bySession.has(key)) bySession.set(key, []);
-      bySession.get(key).push(e);
-    });
-    const groups = [...bySession.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+    // One batch per published session, newest first, podium in order inside.
+    const groups = groupIntoBatches(data.entries);
 
     summary.textContent = `${data.entries.length} winner${data.entries.length === 1 ? "" : "s"} across `
-      + `${groups.length} session${groups.length === 1 ? "" : "s"}`
+      + `${groups.length} batch${groups.length === 1 ? "" : "es"}`
       + (data.updated ? ` · updated ${esc(data.updated)}` : "");
 
     body.className = "toplist-body";
-    body.innerHTML = groups.map(([key, rows]) => {
-      const [day, session] = key.split("|");
-      return `
-        <div class="toplist-session">
-          <div class="toplist-session-head"><b>${esc(day)}</b><span>session ${esc(session)}</span></div>
-          ${rows.sort((a, b) => a.rank - b.rank).map(e => `
+    body.innerHTML = groups.map(g => `
+        <div class="toplist-batch" id="batch-${g.batch}">
+          <div class="toplist-batch-head">
+            <b>Batch Winners #${g.batch}</b>
+            <span>${esc(g.day)} · session ${esc(g.session)}</span>
+          </div>
+          ${g.rows.map(e => `
             <div class="toplist-row" id="row-${esc(e.id)}">
               <span class="toplist-medal">${MEDAL[e.rank - 1] || ""}</span>
+              <span class="toplist-place">TOP ${e.rank}</span>
               <div class="toplist-who">
                 <b>${esc(e.name)}</b>
-                <em>${esc(WORD[e.rank - 1] || "TOP " + e.rank)} · ${e.wins}W / ${e.losses}L</em>
+                <em>${esc(WORD[e.rank - 1] || "")} · ${e.wins}W / ${e.losses}L</em>
               </div>
               <code class="toplist-code">${esc(e.code)}</code>
             </div>`).join("")}
-        </div>`;
-    }).join("");
+        </div>`).join("");
   }
 
   /* ---------- a scanned badge ---------- */
@@ -160,12 +178,16 @@
       return;
     }
     const hashOk = !listed.hash || listed.hash === sha256(BadgeCore.canonical(listed));
+    const group = groupIntoBatches(data.entries).find(g => g.rows.some(r => r.id === id));
+    const batchNo = group ? group.batch : null;
     box.className = "scan-result good";
-    box.innerHTML = `<div class="scan-head">✓ Official — on the published winners list</div>${card}
+    box.innerHTML = `<div class="scan-head">✓ Official — Batch Winners #${batchNo}</div>${card}
       <p>This badge matches the published record${hashOk ? "" : ", though that record's own fingerprint does not match"}.
-      <a href="#row-${esc(id)}">See it in the list below.</a></p>`;
+      <a href="#batch-${batchNo}">See batch #${batchNo} below.</a></p>`;
     const row = document.getElementById("row-" + id);
     if (row) row.classList.add("highlight");
+    const batchEl = batchNo && document.getElementById("batch-" + batchNo);
+    if (batchEl) batchEl.classList.add("batch-highlight");
   }
 
   async function boot() {

@@ -1855,7 +1855,7 @@ document.addEventListener("keydown", e => {
 // The file holds the complete state (players, every match, ratings, settings)
 // under "state", plus a human-readable "summary" (standings + match results)
 // for reading the file outside the app. Import only uses "state".
-const APP_VERSION = "6.4";
+const APP_VERSION = "6.5";
 function pad2(n) { return String(n).padStart(2, "0"); }
 function fileStamp(d = new Date()) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}`;
