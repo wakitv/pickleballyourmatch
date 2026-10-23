@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#06120c">
+  <title>PickleMatch — Pickleball rotation and matchmaking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=5.8">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">🏓</div>
+        <div>
+          <h1>PickleMatch</h1>
+          <p>Smart Pickleball Matchmaker</p>
+        </div>
+      </div>
+      <div class="top-actions"><button class="btn btn-ghost" id="importBtn" type="button" title="Load a saved session file">Import</button><button class="btn btn-ghost" id="exportBtn" type="button" title="Save the whole session to a file">Export</button><input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" tabindex="-1" aria-hidden="true"><button class="btn btn-ghost" id="resetBtn" type="button">Reset</button></div>
+    </header>
+
+    <div class="menu-wrap">
+    <nav class="menu" id="mainMenu" aria-label="Sections">
+      <button type="button" class="menu-btn" data-modal="modalAddPlayer"><span class="menu-ic">👤</span>Add player</button>
+      <button type="button" class="menu-btn" data-modal="modalSettings"><span class="menu-ic">⚙️</span>Match settings</button>
+      <button type="button" class="menu-btn" data-modal="modalLeaderboard"><span class="menu-ic">🏆</span>Leaderboard</button>
+      <button type="button" class="menu-btn" data-modal="modalHistory"><span class="menu-ic">📋</span>History<b class="nav-count" id="navHistory">0</b></button>
+      <button type="button" class="menu-btn" data-modal="modalHow"><span class="menu-ic">💡</span>How it works</button>
+    </nav>
+    <div class="menu-fade" aria-hidden="true"></div>
+    </div>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <h2>Fair matches. Continuous play.</h2>
+          <div class="hero-scene">
+            <canvas id="heroScene" width="200" height="66" role="img"
+              aria-label="Pixel art animation of a doubles pickleball match played to 11, with serves, dinks, drives and smashes"></canvas>
+          </div>
+          <div class="hero-status-row">
+            <span class="live-chip"><i></i> Session live</span>
+            <span class="hero-court-chip" id="heroCourtChip">🏓 2 Courts</span>
+            <span class="hero-court-chip" id="heroMatchChip">0 Active Matches</span>
+            <span class="hero-court-chip hidden" id="heroLimitChip">🎯 5 games each</span>
+            <span class="hero-court-chip hidden" id="heroLevelChip">⭐ Court levels</span>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-large" id="autoMatchBtn">Generate Matches</button>
+      </section>
+
+      <section class="arena-bar" id="arenaBar">
+        <div class="arena-head">
+          <span class="arena-tag">🎲 Pickle Arena <em>side game · play money</em></span>
+          <span class="arena-wallet">₱<b id="arenaBalance">1,000</b></span>
+          <span class="arena-regen" id="arenaRegen">+₱100 in 60:00</span>
+        </div>
+        <div class="arena-setup" id="arenaSetup">
+          <div class="arena-teams" id="arenaTeams" role="group" aria-label="Pick a team">
+            <button type="button" class="arena-team red" data-team="L"><i></i>Red Team</button>
+            <button type="button" class="arena-team blue" data-team="R"><i></i>Blue Team</button>
+          </div>
+          <div class="arena-stake" id="arenaStakeBox">
+            <span class="arena-stake-label">Stake</span>
+            <div class="stake-row">
+              <button type="button" data-stake-step="-50" aria-label="Lower stake">−</button>
+              <b id="arenaStake">100</b>
+              <button type="button" data-stake-step="50" aria-label="Raise stake">+</button>
+            </div>
+            <div class="stake-presets">
+              <button type="button" data-stake="50">50</button>
+              <button type="button" data-stake="100">100</button>
+              <button type="button" data-stake="250">250</button>
+              <button type="button" data-stake="500">500</button>
+              <button type="button" data-stake="all">ALL IN</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-success arena-start" id="arenaStart">Pick a team</button>
+        </div>
+        <div class="arena-status" id="arenaStatus"></div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card"><span>👥</span><div><strong id="playerCount">0</strong><small>Players</small></div></div>
+        <div class="stat-card"><span>🟢</span><div><strong id="waitingCount">0</strong><small>Waiting</small></div></div>
+        <div class="stat-card"><span>🏓</span><div><strong id="courtStat">2</strong><small>Courts</small></div></div>
+        <div class="stat-card"><span>🎮</span><div><strong id="roundCount">0</strong><small>Rounds played</small></div></div>
+      </section>
+
+      <section class="panel" id="matchesPanel">
+        <div class="panel-title">
+          <div><span class="icon">🏓</span><div><h3 id="matchesTitle">Active Matches</h3><small id="matchesSubtitle">Up to 2 courts / 2 pending matches at a time</small></div></div>
+        </div>
+        <div id="matchesList" class="matches-list empty">Add at least 4 players and press Generate Matches.</div>
+      </section>
+
+      <section class="panel" id="waitingPanel">
+        <div class="panel-title">
+          <div><span class="icon">🟢</span><div><h3 id="waitingTitle">Waiting Players</h3><small id="queueSubtitle">0 players in rotation</small></div></div>
+        </div>
+        <div class="rotation-dashboard" id="rotationDashboard"></div>
+        <div class="queue-legend">
+          <span><i class="dot dot-next"></i> Next Rotation</span>
+          <span class="queue-note">Priority: fewest games first, then longest wait.</span>
+        </div>
+        <div id="waitingList" class="waiting-list empty">No players registered yet.</div>
+      </section>
+
+      <section class="panel" id="playerListPanel">
+        <div class="panel-title">
+          <div><span class="icon">📇</span><div><h3>Player List</h3><small id="playerListSubtitle">0 players</small></div></div>
+        </div>
+        <div id="playerListEl" class="waiting-list empty">No players registered yet.</div>
+      </section>
+
+      <div id="modalSettings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="modal-card modal-card-lg">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title">
+            <div><span class="icon">⚙️</span><h3 id="settingsTitle">Match Settings</h3></div>
+            <span class="pill green">Manual trigger</span>
+          </div>
+          <div class="settings-grid">
+            <div class="setting court-setting setting-featured"><span>Active courts</span><div class="court-selector"><button type="button" class="court-option" data-court-option="1">1 COURT</button><button type="button" class="court-option" data-court-option="2">2 COURTS</button></div><select id="courtCount" aria-label="Number of courts" class="visually-hidden"><option value="1">1 Court</option><option value="2">2 Courts</option></select><small id="courtSettingNote">Choose how many courts Generate Matches can use.</small></div>
+            <div class="setting setting-featured setting-wide limit-setting">
+              <span>🎯 Games per player</span>
+              <div class="limit-row">
+                <button type="button" class="limit-step" data-limit-step="-1" aria-label="Fewer games per player">−</button>
+                <div class="limit-value"><b id="gameLimitValue">No limit</b><em id="gameLimitUnit"></em></div>
+                <button type="button" class="limit-step" data-limit-step="1" aria-label="More games per player">+</button>
+              </div>
+              <div class="limit-presets" role="group" aria-label="Quick game limits">
+                <button type="button" data-limit="0">No limit</button>
+                <button type="button" data-limit="3">3</button>
+                <button type="button" data-limit="4">4</button>
+                <button type="button" data-limit="5">5</button>
+                <button type="button" data-limit="6">6</button>
+                <button type="button" data-limit="8">8</button>
+                <button type="button" data-limit="10">10</button>
+              </div>
+              <small id="gameLimitNote">Players keep rotating until you stop the session.</small>
+            </div>
+            <div class="setting setting-featured setting-wide court-level-setting">
+              <span>⭐ Court skill levels</span>
+              <div class="level-toggle-row">
+                <div class="level-toggle-text">
+                  <b id="courtLevelState">Off</b>
+                  <em id="courtLevelHint">Any player can be placed on any court.</em>
+                </div>
+                <button type="button" class="level-switch" id="courtLevelToggle" role="switch" aria-checked="false" aria-label="Court skill levels"><span></span></button>
+              </div>
+              <div class="court-level-cards is-off" id="courtLevelCards"></div>
+              <small id="courtLevelNote">Turn this on to reserve each court for a skill level — for example Court 1 for beginners and Court 2 for 3.0 and up.</small>
+            </div>
+            <div class="setting setting-featured setting-wide pair-setting">
+              <span>🤝 Fixed partners</span>
+              <div class="pair-add-row">
+                <select id="pairPlayerA" aria-label="First partner"></select>
+                <span class="pair-plus">+</span>
+                <select id="pairPlayerB" aria-label="Second partner"></select>
+                <button type="button" class="btn btn-success pair-add-btn" id="pairAddBtn">Lock pair</button>
+              </div>
+              <div class="pair-list" id="pairList"></div>
+              <small id="pairNote">Pick two players to keep them on the same team for the rest of the session.</small>
+            </div>
+            <div class="setting"><span>🔄 Partner Rotation</span><strong>Enabled</strong><small>Recent teammates are deprioritized when Generate Matches is pressed</small></div>
+            <div class="setting"><span>🔒 Active Matches</span><strong id="matchLimitText">2 Courts</strong><small>Players in pending matches cannot enter another match until their result is saved</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="modalLeaderboard" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+        <div class="modal-card modal-card-lg">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title">
+            <div><span class="icon">🏆</span><div><h3 id="lbTitle">Top Players</h3><small>Ranked by results this session, not starting rating</small></div></div>
+            <button type="button" class="btn btn-badge" id="badgeBtn">🏅 Get Top 3 Badges</button>
+          </div>
+          <div id="leaderboard" class="leaderboard empty">No results yet.</div>
+        </div>
+      </div>
+
+      <div id="modalBadges" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="badgeTitle">
+        <div class="modal-card modal-card-lg">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title">
+            <div><span class="icon">🏅</span><div><h3 id="badgeTitle">Top 3 Badges</h3><small>Save and share — each badge carries a QR that opens its own verify screen</small></div></div>
+          </div>
+          <div id="badgeList" class="badge-list empty">No finished matches yet.</div>
+          <p id="badgeHint" class="badge-hint"></p>
+        </div>
+      </div>
+
+      <div id="modalVerify" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="verifyTitle">
+        <div class="modal-card">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title">
+            <div><span class="icon">🔎</span><div><h3 id="verifyTitle">Badge check</h3><small>Scanned from a PickleMatch badge</small></div></div>
+          </div>
+          <div id="verifyBody"></div>
+        </div>
+      </div>
+
+      <div id="modalHow" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="howTitle">
+        <div class="modal-card modal-card-lg">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title"><div><span class="icon">💡</span><h3 id="howTitle">How PickleMatch Works</h3></div></div>
+          <div class="feature-grid">
+            <article><b>1. Fair Rotation</b><p>Whoever has played the fewest games always plays next, and among equals the longest-waiting player goes first. Nobody is skipped to improve a pairing.</p></article>
+            <article><b>2. Partner Rotation</b><p>Recent teammate combinations are avoided first. A previous teammate can become your partner again after enough rotation.</p></article>
+            <article><b>3. Opponent Rotation</b><p>Recent opponents are also deprioritized, preventing the same matchups from repeating too quickly.</p></article>
+            <article><b>4. Skill-Based Doubles Pairing</b><p>Stronger players are paired with weaker ones (3.0 + 2.0, 3.0 + 2.5), never all the strong players on one side. Among equally good splits the pairing is picked at random, and combined team ratings stay close.</p></article>
+            <article><b>5. Manual Court Control</b><p>Choose 1 or 2 courts in Match Settings. Generate Matches only fills the selected number of available courts. No match is generated automatically.</p></article>
+            <article><b>6. Fair Leaderboard</b><p>Players start at different ratings, so rank is based on results, not the starting number. Score is your win rate adjusted for games played, so a 1-0 start cannot beat someone who has won 7 of 9. Ties go to point difference, then wins.</p></article>
+            <article><b>7. PDDR Doubles Rating</b><p>PickleMatch uses its own 2.00–8.00 Dynamic Doubles Rating. It considers team strength, expected result, score performance, match margin and experience. First 5 games are provisional. It is not an official DUPR rating.</p></article>
+            <article><b>8. Games per Player</b><p>In Match Settings you can cap how many games each player gets, e.g. 5 games each. Once a player reaches the limit they are marked Done and left out of new matches. When fewer than 4 players still have games left, the session is finished. If players × games is not divisible by 4, a few players may end one game short.</p></article>
+            <article><b>9. Court Skill Levels</b><p>Each court can be reserved for a rating band — for example Court 1 for beginners (up to 2.9) and Court 2 for 3.0 and up. Generate Matches then only picks players whose rating fits that court, and a CHANGE substitute must fit it too. Fair rotation still applies inside each band: among the players a court accepts, the one with the fewest games goes on next. A match already in play is never changed when you edit a level. Turn it off to go back to any player on any court.</p></article>
+            <article><b>10. Fixed Partners</b><p>In Match Settings you can lock two players together as partners for the rest of the session — they are always on the same team. A locked pair is picked as one unit: both play or neither does, so if one partner is Done on the game limit or does not match a court's level, the pair waits. The "avoid recent partners" rule is switched off for them, while fair rotation still decides when they play. CHANGE can split a pair for one round if you need to, and UNLINK in Match Settings ends the partnership for good.</p></article>
+          </div>
+        </div>
+      </div>
+
+      <div id="modalHistory" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+        <div class="modal-card modal-card-lg">
+          <button class="modal-close" type="button" aria-label="Close">×</button>
+          <div class="panel-title">
+            <div><span class="icon">📋</span><div><h3 id="historyTitle">Finished matches</h3><small id="historySubtitle">Completed matches appear here</small></div></div>
+          </div>
+          <div id="historyList" class="matches-list empty">No finished matches yet.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="importModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+    <div class="modal-card">
+      <button class="modal-close" id="closeImportModal" type="button" aria-label="Close">×</button>
+      <div class="modal-icon">📂</div>
+      <h3 id="importTitle">Import session</h3>
+      <p>Check the saved session below, then press Import to restore it.</p>
+      <div id="importSummary" class="import-summary"></div>
+      <div class="import-actions">
+        <button class="btn btn-success" type="button" id="importConfirmBtn">Import this session</button>
+        <button class="btn btn-ghost hidden" type="button" id="importBackupBtn">Export current first</button>
+        <button class="btn btn-ghost" type="button" id="importCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="changeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="changeTitle">
+    <div class="modal-card change-card">
+      <button class="modal-close" id="closeChangeModal" aria-label="Close">×</button>
+      <div class="modal-icon">🔄</div>
+      <h3 id="changeTitle">Change Player</h3>
+      <p id="changeDescription">Choose a replacement player for this open slot.</p>
+      <div class="change-form">
+        <label>Replacement Player
+          <select id="changeSelect"></select>
+        </label>
+        <div class="change-actions">
+          <button type="button" class="btn btn-success" id="confirmChangeBtn">✓ USE SELECTED PLAYER</button>
+          <button type="button" class="btn btn-primary" id="autoReplaceBtn">Auto replace</button>
+        </div>
+      </div>
+      <small class="change-note">The current Court and Round stay the same. The player you change out returns to Next Rotation.</small>
+    </div>
+  </div>
+
+  <div id="resultModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="modal-card">
+      <button class="modal-close" id="closeModal" aria-label="Close">×</button>
+      <div class="modal-icon">🏆</div>
+      <h3 id="resultTitle">Round Result</h3>
+      <p id="resultHelp">Enter the final score. The higher score determines the winning team and updates player ratings.</p>
+      <div id="resultButtons" class="result-buttons"></div>
+    </div>
+  </div>
+
+  <div id="addModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="modal-card">
+      <button class="modal-close" id="closeAddModal" type="button" aria-label="Close">×</button>
+      <div class="modal-icon">👤</div>
+      <h3 id="addTitle">Add player</h3>
+      <p>Type a name, slide to set the rating and press Add. This window stays open so you can register several players quickly.</p>
+      <form id="quickAddForm" class="quick-form">
+        <label>Player name
+          <input id="quickName" required maxlength="30" placeholder="e.g. Mark" autocomplete="off">
+        </label>
+        <div class="field-label" id="ratingPickerLabel">Starting doubles rating</div>
+        <div class="rating-slider" id="ratingPicker">
+          <div class="rs-readout">
+            <button type="button" class="rs-step" data-step="-0.1" aria-label="Lower rating by 0.1">−</button>
+            <div class="rs-value"><b id="ratingValue">3.0</b><span id="ratingLevel">Intermediate</span></div>
+            <button type="button" class="rs-step" data-step="0.1" aria-label="Raise rating by 0.1">+</button>
+          </div>
+          <input type="range" id="ratingRange" min="2" max="5" step="0.1" value="3" aria-labelledby="ratingPickerLabel" aria-valuetext="3.0 Intermediate">
+          <div class="rs-ticks" aria-hidden="true">
+            <button type="button" tabindex="-1" data-rating="2">2.0</button>
+            <button type="button" tabindex="-1" data-rating="2.5">2.5</button>
+            <button type="button" tabindex="-1" data-rating="3">3.0</button>
+            <button type="button" tabindex="-1" data-rating="3.5">3.5</button>
+            <button type="button" tabindex="-1" data-rating="4">4.0</button>
+            <button type="button" tabindex="-1" data-rating="4.5">4.5</button>
+            <button type="button" tabindex="-1" data-rating="5">5.0</button>
+          </div>
+          <div class="rs-ends" aria-hidden="true"><span>Beginner</span><span>Competitive</span></div>
+        </div>
+        <div class="quick-actions">
+          <button class="btn btn-success" type="submit">＋ Add player</button>
+          <button class="btn btn-ghost" type="button" id="quickDone">Done</button>
+        </div>
+        <div id="quickAdded" class="quick-added" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js?v=5.8"></script>
+  <script src="hero-scene.js?v=5.8"></script>
+  <script src="arena.js?v=5.8"></script>
+  <script src="qr.js?v=5.8"></script>
+  <script src="badges.js?v=5.8"></script>
+</body>
+</html>
