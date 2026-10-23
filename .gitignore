@@ -8,3 +8,7 @@ desktop.ini
 
 # Saved sessions exported from the app
 picklematch-session-*.json
+
+# A clone of the GitHub repo was made inside this folder; it is its own
+# repository and must not be committed into this one.
+pickleballyourmatch/
