@@ -273,11 +273,7 @@ function addPlayer(name, rating) {
   return true;
 }
 
-document.getElementById("autoMatchBtn").onclick = () => {
-  // The Arena's free-pesos clock only starts once play has actually begun.
-  document.dispatchEvent(new CustomEvent("picklematch:generate"));
-  fillPendingRounds();
-};
+document.getElementById("autoMatchBtn").onclick = () => fillPendingRounds();
 document.getElementById("courtCount").value = String(state.courtCount);
 document.getElementById("courtCount").addEventListener("change", e => {
   const nextCount = Number(e.target.value) === 1 ? 1 : 2;
@@ -549,14 +545,10 @@ function renderFixedPairs() {
 }
 
 document.getElementById("resetBtn").onclick = () => {
-  const hasArena = !!window.PickleArena;
-  if (!confirm("Reset all players, rounds and results?"
-    + (hasArena ? "\n\nThis also sets Pickle Arena back to ₱1,000." : ""))) return;
+  if (!confirm("Reset all players, rounds and results?")) return;
   state = defaultState();
   saveState();
-  // The Arena keeps its own wallet, so it resets itself when it hears this.
-  document.dispatchEvent(new CustomEvent("picklematch:reset"));
-  toast(`PickleMatch has been reset.${hasArena ? " Arena wallet back to ₱1,000." : ""}`);
+  toast("PickleMatch has been reset.");
 };
 
 document.getElementById("closeModal").onclick = closeModal;
@@ -1855,7 +1847,7 @@ document.addEventListener("keydown", e => {
 // The file holds the complete state (players, every match, ratings, settings)
 // under "state", plus a human-readable "summary" (standings + match results)
 // for reading the file outside the app. Import only uses "state".
-const APP_VERSION = "6.6";
+const APP_VERSION = "6.7";
 function pad2(n) { return String(n).padStart(2, "0"); }
 function fileStamp(d = new Date()) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}`;

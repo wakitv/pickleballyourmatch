@@ -1,4 +1,17 @@
-# PickleMatch v6.6 — Mini Game Tab
+# PickleMatch v6.7 — Mini Game Removed
+
+## What changed in v6.7
+The Mini game is gone: the **Pickle Arena** betting game and the **simulated match animation** have both been removed, along with their code and files.
+
+Removed:
+- `arena.js` and `hero-scene.js` — deleted
+- The Mini game tab, its modal and the two `<script>` tags in `index.html`
+- All Arena and animation CSS (roughly 4 KB of `style.css`), including the `--team-red` / `--team-blue` variables that only the Arena swatches used
+- The `picklematch:generate` and `picklematch:reset` events in `app.js`, which existed only so the Arena could start its clock and reset its wallet. Generate Matches and Reset are back to plain handlers, and the Reset dialog no longer mentions a wallet.
+
+Untouched: everything that runs a session — rotation, matchmaking, ratings, the leaderboard, court skill levels, fixed partners, games per player, export/import, and the Top 3 Badges and Top List pages.
+
+**One leftover you cannot see:** a wallet balance may still sit in the `picklematch_arena` key in the browser storage of anyone who played it. Nothing reads that key any more, so it is inert; clearing site data removes it.
 
 ## What changed in v6.6
 - New **🎮 Mini game** tab in the menu, between Leaderboard and History. The **simulated doubles match** and the **Pickle Arena** betting game both live there now.
@@ -139,7 +152,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.6`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.7`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero

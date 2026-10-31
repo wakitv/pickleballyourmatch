@@ -5,7 +5,6 @@
   --text:#e9f6ee; --muted:#93b5a2; --dim:#6f9380;
   --lime:#c8f542; --lime-ink:#0c1a06; --green:#34d17a; --green-ink:#03150a; --mint:#7ce8b0;
   --amber:#f4c542; --red:#ff8477;
-  --team-red:#ff6a5c; --team-blue:#5aa9ff;
   --display:"Bricolage Grotesque","DM Sans",system-ui,sans-serif;
   --body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:dark;
@@ -61,11 +60,6 @@ h1,h2,h3,p{margin:0}
   linear-gradient(90deg,transparent calc(28% - 1px),rgba(200,245,66,.12) calc(28% - 1px) calc(28% + 1px),transparent calc(28% + 1px) calc(72% - 1px),rgba(200,245,66,.12) calc(72% - 1px) calc(72% + 1px),transparent calc(72% + 1px))}
 .hero::after{content:"";position:absolute;right:-90px;top:-90px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(200,245,66,.24),transparent 66%);z-index:-1}
 .hero-copy{flex:1 1 auto;max-width:640px;min-width:0}
-.hero-scene{width:100%}
-.hero-scene canvas{display:block;width:100%;height:auto;border-radius:12px;
-  image-rendering:crisp-edges;image-rendering:pixelated;
-  background:linear-gradient(180deg,rgba(7,26,16,.55),rgba(7,26,16,.15));
-  border:1px solid rgba(200,245,66,.16)}
 .eyebrow{display:inline-block;color:var(--lime);font-size:13px;font-weight:700}
 .hero h2{font-family:var(--display);font-size:clamp(28px,4.2vw,42px);line-height:1.06;letter-spacing:-.015em;margin:8px 0 12px}
 .hero p{color:#b9d6c6;max-width:560px}
@@ -75,55 +69,6 @@ h1,h2,h3,p{margin:0}
 .hero .btn{flex:0 0 auto;white-space:nowrap;box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 40px rgba(200,245,66,.16)}
 .hero .btn:hover{transform:translateY(-2px)}
 .hero .btn:active{transform:translateY(5px);box-shadow:0 3px 0 rgba(0,0,0,.35)}
-
-/* ---------- Pickle Arena (side game) ---------- */
-.arena-bar{margin-bottom:16px;padding:14px 18px;border-radius:18px;border:1px solid var(--line-2);
-  background:linear-gradient(160deg,rgba(200,245,66,.05),var(--panel))}
-.arena-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
-.arena-tag{display:inline-flex;align-items:baseline;gap:8px;font-weight:800;font-size:13px;color:var(--text)}
-.arena-tag em{font-style:normal;font-weight:700;font-size:11px;color:var(--dim)}
-.arena-wallet{margin-left:auto;font-family:var(--display);font-size:22px;color:var(--lime)}
-.arena-wallet b{font-weight:800}
-.arena-regen{padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.28);border:1px solid var(--line);
-  color:var(--muted);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
-.arena-regen.urgent{color:var(--amber);border-color:rgba(244,197,66,.45)}
-.arena-setup{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px}
-.arena-teams{display:flex;gap:8px}
-.arena-team{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:12px;
-  border:1px solid var(--line-2);background:var(--panel-2);color:var(--muted);font-weight:800;font-size:13px}
-.arena-team i{width:12px;height:12px;border-radius:4px;display:block}
-.arena-team.red i{background:var(--team-red)}
-.arena-team.blue i{background:var(--team-blue)}
-.arena-team:hover:not(:disabled){color:var(--text);border-color:var(--mint)}
-.arena-team.red.selected{background:rgba(255,106,92,.16);border-color:var(--team-red);color:var(--team-red)}
-.arena-team.blue.selected{background:rgba(90,169,255,.16);border-color:var(--team-blue);color:var(--team-blue)}
-.arena-team:disabled{opacity:.45;cursor:not-allowed}
-.arena-stake{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.arena-stake-label{color:var(--muted);font-size:12px;font-weight:700}
-.stake-row{display:flex;align-items:center;gap:4px;padding:4px;border-radius:12px;background:#081a10}
-.stake-row button{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-2);background:var(--panel-3);
-  color:var(--text);font-size:19px;font-weight:700;line-height:1}
-.stake-row button:hover:not(:disabled){border-color:var(--mint)}
-.stake-row button:disabled{opacity:.3;cursor:not-allowed}
-.stake-row b{min-width:52px;text-align:center;font-family:var(--display);font-size:19px;color:var(--lime);
-  font-variant-numeric:tabular-nums}
-.stake-presets{display:flex;flex-wrap:wrap;gap:6px}
-.stake-presets button{min-height:34px;padding:0 11px;border-radius:999px;border:1px solid var(--line-2);
-  background:transparent;color:var(--muted);font-weight:800;font-size:12px}
-.stake-presets button:hover:not(:disabled){color:var(--text);border-color:var(--mint)}
-.stake-presets button.selected{background:var(--lime);border-color:var(--lime);color:var(--lime-ink)}
-.stake-presets button:disabled{opacity:.3;cursor:not-allowed}
-.arena-start{margin-left:auto;min-height:46px;white-space:nowrap}
-.arena-start:disabled{opacity:.45;cursor:not-allowed;filter:none}
-.arena-status{margin-top:10px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.22);
-  color:var(--muted);font-size:12px;font-weight:700}
-.arena-status.live{color:var(--lime);font-variant-numeric:tabular-nums}
-.arena-status.win{color:var(--green)}
-.arena-status.lose{color:var(--red)}
-
-/* The match animation and the Arena both live behind the Mini game tab. */
-#modalMiniGame .hero-scene{margin-bottom:14px}
-#modalMiniGame .arena-bar{margin-bottom:0}
 
 /* ---------- top 3 badges ---------- */
 .panel-title .btn-badge{margin-left:auto;min-height:40px;padding:0 16px;font-size:13px;
@@ -501,13 +446,6 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
   body{padding-bottom:104px}
   .app-shell{padding:12px 12px 24px}
   .hero{flex-direction:column;align-items:stretch;padding:26px 20px}
-  .hero-scene{max-width:none}
-  .arena-wallet{margin-left:0}
-  .arena-setup{flex-direction:column;align-items:stretch}
-  .arena-teams{display:grid;grid-template-columns:1fr 1fr}
-  .arena-team{justify-content:center}
-  .arena-stake{justify-content:space-between}
-  .arena-start{margin-left:0;width:100%}
   .badge-list{grid-template-columns:1fr}
   .trust-grid{grid-template-columns:1fr}
   .hero .btn{width:100%}
