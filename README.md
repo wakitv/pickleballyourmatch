@@ -1,4 +1,13 @@
-# BuenasxPickle v7.8 — Dark Mode and Light Mode
+# BuenasxPickle v7.9 — LIVE on Every Court
+
+## What changed in v7.9
+A court with a match on it now says **LIVE**, with an orange dot that breathes, where it used to say *In play*. One word, the one a scoreboard would use, and the pulse makes the difference between a court that is playing and one that is finished readable at a glance rather than by reading.
+
+Finished matches say **Final** as before. The chip is `.status.live`; the animation is a ring expanding out of the dot, and `prefers-reduced-motion` already turns every animation in the app off, so the chip still reads LIVE for anyone who asks for less movement.
+
+*In play now* in **Match settings** is untouched — that is a sentence about a pair, not a court's status chip.
+
+Checked in both themes at 1280px and 375px: every pending court shows the chip, with no horizontal overflow.
 
 ## What changed in v7.8
 A **☀️ / 🌙 button** in the top bar of all three pages switches between dark and light. The choice is remembered in that browser; without one, the page follows the device, so a phone in dark mode opens dark.

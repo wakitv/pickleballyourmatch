@@ -456,7 +456,17 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .round-title span{margin-left:6px;color:var(--muted);font-family:var(--body);font-size:12px;font-weight:500}
 .head-tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 .status,.bal{padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800}
-.status.pending{background:rgba(255,122,24,.14);color:var(--lime)}
+/* Every court in play says so, with a dot that breathes. Reduced motion
+   turns the animation off globally, and the chip still reads LIVE. */
+.status.live{display:inline-flex;align-items:center;gap:6px;background:rgba(255,122,24,.16);
+  color:var(--lime);letter-spacing:.1em}
+.status.live i{width:7px;height:7px;border-radius:50%;background:var(--lime);
+  box-shadow:0 0 0 0 rgba(255,122,24,.55);animation:live-pulse 1.8s ease-out infinite}
+@keyframes live-pulse{
+  0%{box-shadow:0 0 0 0 rgba(255,122,24,.55)}
+  70%{box-shadow:0 0 0 7px rgba(255,122,24,0)}
+  100%{box-shadow:0 0 0 0 rgba(255,122,24,0)}
+}
 .status.completed{background:rgba(52,209,122,.15);color:var(--green)}
 .bal.even{background:rgba(52,209,122,.15);color:var(--green)}
 .bal.close{background:rgba(244,197,66,.15);color:var(--amber)}

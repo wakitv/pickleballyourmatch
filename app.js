@@ -1600,7 +1600,9 @@ function matchCard(r) {
         <div class="head-tags">
           ${courtRulesOn() && !isOpenCourt(r.court || 1) ? `<span class="court-level-tag">⭐ ${esc(courtRangeText(r.court || 1))}</span>` : ""}
           ${r.status === "pending" ? `<span class="bal ${bal.cls}" title="Team rating difference ${Math.abs(aR-bR).toFixed(2)}">${bal.label}</span>` : ""}
-          <span class="status ${r.status}">${r.status === "pending" ? "In play" : "Final"}</span>
+          ${r.status === "pending"
+            ? `<span class="status live"><i></i>LIVE</span>`
+            : `<span class="status completed">Final</span>`}
         </div>
       </div>
       <div class="teams">
@@ -1872,7 +1874,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "7.8";
+const APP_VERSION = "7.9";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;
