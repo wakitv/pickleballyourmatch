@@ -47,12 +47,12 @@
   function toplistUrl() {
     return location.origin + location.pathname.replace(/[^/]*$/, "") + "toplist/";
   }
-  // What the QR actually carries. Over http(s) it is a link to the Top List
-  // page; from a file:// page there is no URL worth sharing, so it carries
-  // readable text instead.
+  // What the QR actually carries. Over http(s) it is a link to the badge's
+  // own certificate page; from a file:// page there is no URL worth sharing,
+  // so it carries readable text instead.
   function qrTextFor(signed, e, day, code) {
     if (location.protocol === "http:" || location.protocol === "https:") {
-      return `${toplistUrl()}#b=${b64uEnc(signed)}`;
+      return `${toplistUrl()}verify.html#b=${b64uEnc(signed)}`;
     }
     return `PICKLEMATCH TOP ${e.rank} | ${e.name} | ${e.wins}W-${e.losses}L | ${day} | ${code}`;
   }

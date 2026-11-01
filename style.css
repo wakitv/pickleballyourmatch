@@ -151,8 +151,57 @@ h1,h2,h3,p{margin:0}
 .toplist-who{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .toplist-who b{font-family:var(--display);font-size:16px}
 .toplist-who em{font-style:normal;color:var(--muted);font-size:12px;font-weight:700}
-.toplist-code{padding:4px 9px;border-radius:999px;background:rgba(246,212,74,.14);
-  color:#f6d44a;font-size:11px;font-weight:800;font-family:ui-monospace,monospace}
+.toplist-code{align-self:flex-start;margin-top:3px;padding:3px 9px;border-radius:999px;
+  background:rgba(246,212,74,.14);color:#f6d44a;font-size:11px;font-weight:800;
+  font-family:ui-monospace,monospace}
+
+/* The QR beside a winner: scannable from a phone, tappable on the page. */
+.toplist-qr{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:7px 7px 5px;border-radius:12px;background:rgba(255,255,255,.05);
+  border:1px solid var(--line-2);text-decoration:none;transition:border-color .15s,background .15s}
+.toplist-qr:hover,.toplist-qr:focus-visible{border-color:rgba(246,212,74,.55);
+  background:rgba(246,212,74,.1)}
+.toplist-qr canvas{display:block;width:84px;height:84px;border-radius:5px;
+  background:#fff;image-rendering:pixelated}
+.toplist-qr span{color:var(--dim);font-size:9px;font-weight:800;letter-spacing:.14em}
+.toplist-qr:hover span,.toplist-qr:focus-visible span{color:#f6d44a}
+.toplist-lead{margin:-2px 0 14px;color:var(--muted);font-size:12.5px;line-height:1.55}
+
+/* ---------- the certificate page ---------- */
+.certificate{padding:20px;border-radius:18px;border:1px solid var(--line-2);background:var(--panel)}
+.certificate.good{border-color:rgba(52,209,122,.5);
+  background:linear-gradient(160deg,rgba(52,209,122,.1),var(--panel))}
+.certificate.warn{border-color:rgba(244,197,66,.5);
+  background:linear-gradient(160deg,rgba(244,197,66,.08),var(--panel))}
+.certificate.bad{border-color:rgba(255,132,119,.5);
+  background:linear-gradient(160deg,rgba(255,132,119,.08),var(--panel))}
+.cert-loading{color:var(--muted);font-size:13px}
+.cert-head{font-family:var(--display);font-size:24px;font-weight:800;text-align:center}
+.certificate.good .cert-head{color:var(--green)}
+.certificate.warn .cert-head{color:var(--amber)}
+.certificate.bad .cert-head{color:var(--red)}
+.cert-card{margin-top:16px;padding:24px 20px;border-radius:17px;background:#07090c;
+  border:1px solid rgba(246,212,74,.3);text-align:center}
+.cert-seal{font-size:46px;line-height:1}
+.cert-rank{margin-top:6px;font-family:var(--display);font-size:46px;font-weight:800;
+  background:linear-gradient(180deg,#fff4c2,#f6d44a 50%,#b8860b);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.cert-word{margin-top:2px;color:var(--mint);font-size:12px;font-weight:800;letter-spacing:.22em}
+.cert-name{margin-top:14px;font-family:var(--display);font-size:30px;font-weight:800;
+  color:#fff;word-break:break-word}
+.cert-record{margin:16px auto 0;max-width:260px;padding:12px;border-radius:13px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(246,212,74,.22)}
+.cert-record span{display:block;color:var(--dim);font-size:10px;font-weight:800;letter-spacing:.14em}
+.cert-record b{display:block;margin-top:4px;font-family:var(--display);font-size:26px;color:#f6d44a}
+.cert-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;text-align:left}
+.cert-meta div{padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.035)}
+.cert-meta dt{color:var(--dim);font-size:9.5px;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase}
+.cert-meta dd{margin-top:3px;color:var(--text);font-size:13px;font-weight:700;
+  font-family:ui-monospace,monospace;word-break:break-all}
+.cert-note{margin-top:14px;color:var(--muted);font-size:13px;line-height:1.6;text-align:center}
+.cert-note a{color:var(--lime)}
+.cert-note b{color:var(--text)}
 .trust-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .trust-grid article{padding:14px;border-radius:13px;background:var(--panel-2);border:1px solid var(--line)}
 .trust-grid b{display:block;margin-bottom:6px;font-family:var(--display);font-size:14px;color:var(--lime)}
@@ -510,6 +559,19 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .lb-note{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);font-size:13px}
 .lb-note b{color:var(--lime)}
 @media(max-width:560px){
+  /* Side by side there is no room for both a name and a QR, so the rank and
+     the QR share the top line and the player takes the width below them. */
+  .toplist-row{flex-wrap:wrap;row-gap:6px}
+  .toplist-medal,.toplist-place{order:1}
+  .toplist-qr{order:2;margin-left:auto;flex-direction:row;align-items:center;gap:8px;
+    padding:6px 10px 6px 6px}
+  .toplist-qr canvas{width:58px;height:58px}
+  .toplist-qr span{font-size:9px;letter-spacing:.12em}
+  .toplist-who{order:3;flex:1 1 100%}
+  .cert-meta{grid-template-columns:1fr}
+  .cert-rank{font-size:38px}
+  .cert-name{font-size:24px}
+  .cert-head{font-size:20px}
   .panel-title .btn-badge{margin-left:0;width:100%}
   .topbar{flex-wrap:wrap}
   .top-actions{width:100%}

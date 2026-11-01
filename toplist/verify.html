@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#06120c">
+  <title>Certificate — PickleMatch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css?v=7.4">
+</head>
+<body class="toplist-page verify-page">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">🔎</div>
+        <div>
+          <h1>Certificate</h1>
+          <p>PickleMatch badge check</p>
+        </div>
+      </div>
+      <div class="top-actions"><a class="btn btn-ghost" href="index.html">🏆 Top List</a></div>
+    </header>
+
+    <main>
+      <!-- The verdict, filled in from the scanned badge. -->
+      <section id="verdict" class="certificate">
+        <div class="cert-loading">Checking this badge against the spreadsheet…</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <div><span class="icon">🔒</span><div><h3>What this check proves</h3>
+            <small>And what it deliberately does not</small></div></div>
+        </div>
+        <div class="trust-grid">
+          <article>
+            <b>The badge is checked twice</b>
+            <p>First against the checksum baked into its own QR, which catches a badge whose
+            name, rank or record has been edited. Then against the organiser's spreadsheet,
+            which is what makes it official rather than merely intact.</p>
+          </article>
+          <article>
+            <b>The spreadsheet is the record</b>
+            <p>Every badge here was written when the session ended. Adding to that sheet needs
+            both the sheet itself and the organiser's secret phrase, which never leaves their
+            own browser.</p>
+          </article>
+          <article>
+            <b>The fingerprint is recomputed</b>
+            <p>This page does not take the spreadsheet's word for a row. It rebuilds the badge
+            payload and hashes it again, so a row edited by hand after the fact fails here
+            even though the sheet still holds it.</p>
+          </article>
+          <article>
+            <b>What it is not</b>
+            <p>PickleMatch runs entirely in a browser with no server, so a badge cannot be
+            cryptographically signed: any key sent to a browser is public. A badge that passes
+            its checksum but is missing from the sheet is unverified, not certified.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../sha256.js?v=7.4"></script>
+  <script src="../qr.js?v=7.4"></script>
+  <script src="../badge-core.js?v=7.4"></script>
+  <script src="source.js?v=7.4"></script>
+  <script src="feed.js?v=7.4"></script>
+  <script src="verify.js?v=7.4"></script>
+</body>
+</html>

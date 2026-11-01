@@ -101,6 +101,11 @@ window.TOPLIST_SOURCE = {
 Commit that once and the page is live from then on. It refreshes when opened, when
 **↻ Refresh** is pressed, and every couple of minutes while it is on screen.
 
+Every winner on that page carries a QR of its own, and so does every printed badge.
+Both open `toplist/verify.html`, a certificate page that checks that one badge against
+this spreadsheet and answers *Certified* or says exactly why not. It reads the sheet
+through the same URL, so there is nothing further to set up.
+
 **This puts the URL in a public file, and that is the intended trade.** Reading the
 winners is meant to be public, and reading needs no secret. Writing still needs the
 secret phrase, which lives only in the organiser's browser and never appears here. The

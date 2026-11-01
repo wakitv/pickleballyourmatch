@@ -1,4 +1,30 @@
-# PickleMatch v7.3 — One Way to Save, One Place for Badges
+# PickleMatch v7.4 — A QR on Every Winner, and a Certificate to Scan It Into
+
+## What changed in v7.4
+- **Every winner on the Top List now carries its own QR**, beside the row. A player can scan their result straight off the screen, or tap it on the page. Only the podium has one, because only the podium has a badge.
+- **Scanning lands on a certificate page**, [`toplist/verify.html`](toplist/verify.html) — one badge, one verdict, rather than the whole list with a result box at the top. It shows TOP 1 / 2 / 3, the player, the win–loss record, the batch, the session, the date and the badge code, over a gold crest meant to be photographed.
+- **Badge QRs point there too.** A QR printed on a Top 3 badge now opens the certificate instead of the Top List. Badges made before this still work: the Top List keeps its own scan box, so an old QR is still checked and answered.
+
+### What the certificate actually checks
+Two checks, in this order, because they fail for different reasons and the order decides who gets blamed:
+
+| Verdict | What happened |
+|---|---|
+| **✓ Certified** | Intact, in the spreadsheet, and the row's fingerprint still matches |
+| **⚠ The record itself has been edited** | The badge is fine; the *spreadsheet row* no longer matches its own fingerprint |
+| **⚠ Genuine badge, not on the record** | Intact, but the session has not been saved yet |
+| **⚠ Badge is intact, record unavailable** | The sheet could not be reached, or none is connected |
+| **✕ Does not match the record** | That code is in the sheet, with different details |
+| **✕ This badge has been altered** | The result on the badge fails its own checksum |
+| **✕ Not a PickleMatch badge / Nothing to check** | The link carries nothing readable, or no badge at all |
+
+The fingerprint check runs **before** the comparison deliberately. If the organiser's sheet has been edited by hand, the honest answer is "the record was edited", not "your badge does not match" — the second blames the person holding the badge for someone else's edit.
+
+### Also
+- The spreadsheet reader moved into [`toplist/feed.js`](toplist/feed.js), shared by both pages. The list and the certificate must answer the same question the same way, and two copies of that logic would eventually disagree.
+- On a phone the row stacks: rank and QR on the top line, the player across the width below, so nothing is squeezed to a few characters.
+
+Verified against a mock feed carrying real badge codes: all seven verdicts above were reproduced, including a spreadsheet row edited by hand behind a genuine badge; the QR a badge mints was checked to be the certificate URL; an old-style badge link still verified on the Top List; and both pages were checked at 375px with no horizontal overflow.
 
 ## What changed in v7.3
 **Reset is the only thing that saves now, and badges live in the spreadsheet.**

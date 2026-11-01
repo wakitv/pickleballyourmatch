@@ -1,13 +1,9 @@
 /*
   toplist.js — the public winners page.
 
-  Reads the spreadsheet through the Apps Script Web App in source.js, renders
-  it, and — when a badge QR sent you here — checks that badge against it.
-
-  The spreadsheet is the whole record. There is no committed winners file any
-  more: the script's Badges tab holds every minted badge with its code, its
-  batch number and a fingerprint of its own payload, and this page recomputes
-  that fingerprint rather than believing it.
+  Renders what feed.js reads out of the spreadsheet, puts a QR beside every
+  badge so a player can scan their own straight off the screen, and — when a
+  badge QR sent you here — checks that badge against the list.
 */
 (function () {
   const esc = v => String(v).replace(/[&<>"']/g, c =>
@@ -18,104 +14,30 @@
   let data = { entries: [] };
 
   /* ---------- the record, straight from the spreadsheet ---------- */
-  const sheetUrl = () => (window.TOPLIST_SOURCE && window.TOPLIST_SOURCE.url || "").trim();
-
-  // The Badges tab is authoritative for anyone on the podium: it holds the
-  // code the badge was minted with and the batch the script gave it. The
-  // Players tab fills in everyone else, and the games and score a badge does
-  // not carry.
-  function entriesFrom(sessions, badges) {
-    const badgeAt = new Map();
-    badges.forEach(b => badgeAt.set(`${b.session}|${b.rank}`, b));
-
-    const entries = [];
-    sessions.forEach((s, i) => {
-      // The script numbers batches; a sheet saved before it did falls back to
-      // the order the sessions came back in, which is oldest first.
-      const batch = Number(s.batch) || i + 1;
-      (s.winners || []).forEach(w => {
-        const rank = Number(w.rank);
-        const badge = badgeAt.get(`${s.session}|${rank}`);
-        const e = {
-          batch, rank,
-          name: String(badge ? badge.name : w.name),
-          wins: Number(badge ? badge.wins : w.wins) || 0,
-          losses: Number(badge ? badge.losses : w.losses) || 0,
-          games: Number(w.games) || 0,
-          score: w.score == null ? null : Number(w.score),
-          day: String((badge && badge.day) || s.day || ""),
-          session: String(s.session || "")
-        };
-        if (rank <= 3) {
-          // A badge row carries its own code; without one the code is derived
-          // the same way the app minted it, so an older sheet still matches.
-          e.code = badge && badge.code ? badge.code : BadgeCore.sign(e, e.day, e.session).code;
-          e.id = badge && badge.id ? badge.id : `${e.session}-${e.code}`;
-          e.fingerprint = badge ? String(badge.fingerprint || "") : "";
-          e.intact = !e.fingerprint || e.fingerprint === BadgeCore.fingerprint(e);
-        } else {
-          e.id = `${e.session}-R${rank}`;
-          e.intact = true;
-        }
-        entries.push(e);
-      });
-    });
-    return entries;
-  }
+  const { sheetUrl, groupIntoBatches, fingerprintOf, batchHue, certLink } = window.TopListFeed;
 
   async function loadList() {
-    const url = sheetUrl();
-    if (!url) { data = { entries: [], noSource: true }; return data; }
-    try {
-      const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(),
-        { cache: "no-store", redirect: "follow" });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "the script reported a problem");
-      data = {
-        entries: entriesFrom(json.sessions || [], json.badges || []),
-        updated: (json.updated || "").slice(0, 10), live: true, sheet: json.sheet
-      };
-    } catch (err) {
-      data = { entries: [], error: String(err.message || err) };
-    }
+    data = await window.TopListFeed.load();
     return data;
   }
 
-  // Recomputed here rather than trusted, so a doctored file shows up.
-  function fingerprintOf(entries) {
-    return sha256(entries.map(e => sha256(BadgeCore.canonical(e))).join("\n")).slice(0, 32);
-  }
-
-  // Groups entries into numbered batches, highest first. A file written before
-  // batch numbers existed still groups sensibly: its sessions are numbered by
-  // date, oldest first.
-  function groupIntoBatches(entries) {
-    const needsNumbers = entries.some(e => !Number(e.batch));
-    let fallback = new Map();
-    if (needsNumbers) {
-      const sessions = [...new Set(entries.map(e => `${e.day}|${e.session}`))].sort();
-      sessions.forEach((key, i) => fallback.set(key, i + 1));
-    }
-    const numberOf = e => Number(e.batch) || fallback.get(`${e.day}|${e.session}`) || 1;
-
-    const byBatch = new Map();
-    entries.forEach(e => {
-      const n = numberOf(e);
-      if (!byBatch.has(n)) byBatch.set(n, { batch: n, day: e.day, session: e.session, rows: [] });
-      byBatch.get(n).rows.push(e);
+  // One QR per badge, drawn after the rows are in the page. Error correction
+  // M, because a screen is a clean surface to scan off and the extra data
+  // would only make the modules smaller.
+  function drawRowCodes() {
+    document.querySelectorAll("canvas[data-qr]").forEach(cv => {
+      const qr = QR.encode(cv.dataset.qr, "M");
+      const quiet = 3, px = Math.max(2, Math.floor(108 / (qr.size + quiet * 2)));
+      const box = (qr.size + quiet * 2) * px;
+      cv.width = box; cv.height = box;
+      const g = cv.getContext("2d");
+      g.fillStyle = "#ffffff";
+      g.fillRect(0, 0, box, box);
+      g.fillStyle = "#000000";
+      for (let r = 0; r < qr.size; r++) for (let c = 0; c < qr.size; c++) {
+        if (qr.modules[r][c]) g.fillRect((c + quiet) * px, (r + quiet) * px, px, px);
+      }
     });
-    return [...byBatch.values()]
-      .map(g => ({ ...g, rows: g.rows.sort((a, b) => a.rank - b.rank) }))
-      .sort((a, b) => b.batch - a.batch);
-  }
-
-  // A colour per batch, taken from its session id so it never moves between
-  // reloads, and spread far enough apart to be told apart at a glance.
-  function batchHue(group) {
-    const key = String(group.session || group.batch);
-    let sum = 0;
-    for (let i = 0; i < key.length; i++) sum = (sum * 31 + key.charCodeAt(i)) % 100000;
-    return (sum * 47) % 360;
   }
 
   function renderList() {
@@ -189,6 +111,10 @@
               .concat(e.games ? [`${e.games} games`] : [])
               .concat(e.score == null ? [] : [`score ${e.score}`])
               .filter(Boolean).join(" · ");
+            // The QR has to carry a whole address, since it is read by a
+            // phone that knows nothing about where this page came from.
+            const href = podium ? certLink(e) : "";
+            const full = podium ? new URL(href, location.href).href : "";
             return `
             <div class="toplist-row${podium ? "" : " plain"}" id="row-${esc(e.id)}">
               <span class="toplist-medal">${podium ? MEDAL[e.rank - 1] : ""}</span>
@@ -196,11 +122,20 @@
               <div class="toplist-who">
                 <b>${esc(e.name)}</b>
                 <em>${esc(detail)}</em>
+                ${podium ? `<code class="toplist-code">${esc(e.code)}</code>` : ""}
               </div>
-              ${podium ? `<code class="toplist-code">${esc(e.code)}</code>` : ""}
+              ${podium ? `
+              <a class="toplist-qr" href="${esc(href)}"
+                 title="Scan or tap to open ${esc(e.name)}'s certificate">
+                <canvas data-qr="${esc(full)}" role="img"
+                  aria-label="QR code opening the certificate for ${esc(e.name)}"></canvas>
+                <span>VERIFY</span>
+              </a>` : ""}
             </div>`;
           }).join("")}
         </div>`).join("");
+
+    drawRowCodes();
   }
 
   /* ---------- a scanned badge ---------- */
