@@ -180,21 +180,47 @@ h1,h2,h3,p{margin:0}
 .certificate.good .cert-head{color:var(--green)}
 .certificate.warn .cert-head{color:var(--amber)}
 .certificate.bad .cert-head{color:var(--red)}
-.cert-card{margin-top:16px;padding:24px 20px;border-radius:17px;background:#07090c;
-  border:1px solid rgba(246,212,74,.3);text-align:center}
-.cert-seal{font-size:46px;line-height:1}
+/* The court artwork, under the same treatment the printed badge gives it: a
+   flat scrim to kill the white, then a veil that is heaviest at the top and
+   bottom where the lettering sits, then a warm glow behind the crest. */
+.cert-card{position:relative;max-width:470px;margin:18px auto 0;padding:30px 24px 26px;
+  border-radius:19px;border:2px solid rgba(246,212,74,.42);text-align:center;overflow:hidden;
+  background:
+    radial-gradient(ellipse at 50% 24%,rgba(246,212,74,.18),rgba(0,0,0,0) 58%),
+    linear-gradient(180deg,rgba(7,9,12,.92),rgba(7,9,12,.5) 34%,rgba(7,9,12,.66) 62%,rgba(7,9,12,.94)),
+    linear-gradient(rgba(7,9,12,.46),rgba(7,9,12,.46)),
+    url("badge-bg.webp") center/cover no-repeat,
+    #07090c;
+  box-shadow:0 20px 48px rgba(0,0,0,.5)}
+/* Only a certified badge gets the crest in full colour. A badge that failed,
+   or that cannot be confirmed, is drained -- otherwise the artwork makes a
+   rejection look like an award to anyone glancing at the screen. */
+.certificate.warn .cert-card{filter:grayscale(.62) brightness(.82);
+  border-color:rgba(244,197,66,.38);box-shadow:0 14px 32px rgba(0,0,0,.4)}
+.certificate.bad .cert-card{filter:grayscale(.95) brightness(.66);
+  border-color:rgba(255,132,119,.38);box-shadow:none}
+
+/* A hairline inside the frame, like the crest on the badge. */
+.cert-card::after{content:"";position:absolute;inset:11px;border-radius:10px;
+  border:1px solid rgba(246,212,74,.2);pointer-events:none}
+.cert-card>*{position:relative}
+.cert-seal{font-size:46px;line-height:1;filter:drop-shadow(0 3px 9px rgba(0,0,0,.75))}
 .cert-rank{margin-top:6px;font-family:var(--display);font-size:46px;font-weight:800;
   background:linear-gradient(180deg,#fff4c2,#f6d44a 50%,#b8860b);
-  -webkit-background-clip:text;background-clip:text;color:transparent}
-.cert-word{margin-top:2px;color:var(--mint);font-size:12px;font-weight:800;letter-spacing:.22em}
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 10px rgba(0,0,0,.9))}
+.cert-word{margin-top:2px;color:var(--mint);font-size:12px;font-weight:800;letter-spacing:.22em;
+  text-shadow:0 2px 9px rgba(0,0,0,.9)}
 .cert-name{margin-top:14px;font-family:var(--display);font-size:30px;font-weight:800;
-  color:#fff;word-break:break-word}
+  color:#fff;word-break:break-word;text-shadow:0 2px 12px rgba(0,0,0,.92)}
 .cert-record{margin:16px auto 0;max-width:260px;padding:12px;border-radius:13px;
-  background:rgba(255,255,255,.04);border:1px solid rgba(246,212,74,.22)}
-.cert-record span{display:block;color:var(--dim);font-size:10px;font-weight:800;letter-spacing:.14em}
+  background:rgba(7,9,12,.72);border:1px solid rgba(246,212,74,.28);
+  backdrop-filter:blur(2px)}
+.cert-record span{display:block;color:var(--mint);font-size:10px;font-weight:800;letter-spacing:.14em}
 .cert-record b{display:block;margin-top:4px;font-family:var(--display);font-size:26px;color:#f6d44a}
 .cert-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;text-align:left}
-.cert-meta div{padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.035)}
+.cert-meta div{padding:9px 11px;border-radius:10px;background:rgba(7,9,12,.72);
+  border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(2px)}
 .cert-meta dt{color:var(--dim);font-size:9.5px;font-weight:800;letter-spacing:.12em;
   text-transform:uppercase}
 .cert-meta dd{margin-top:3px;color:var(--text);font-size:13px;font-weight:700;

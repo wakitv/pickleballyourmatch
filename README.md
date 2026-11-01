@@ -1,4 +1,15 @@
-# PickleMatch v7.4 — A QR on Every Winner, and a Certificate to Scan It Into
+# PickleMatch v7.5 — The Certificate Looks Like One
+
+## What changed in v7.5
+The certificate page now carries the same pickleball artwork the printed badges use, so a scanned badge and a printed one look like the same thing.
+
+- **`badge-bg.webp` sits behind the crest**, under the treatment the badge already gives it: a flat scrim to kill the white, a veil heaviest at the top and bottom where the lettering sits, and a warm glow behind the rank. The record and detail tiles sit on their own dark plates so they stay readable over the busy middle.
+- **The crest is a portrait card now**, 470px at most and centred, rather than stretching the full width of the panel. Across a wide panel the square artwork was cropped to a band of midriffs; at this width both players are in frame, and it reads as a certificate rather than a banner.
+
+### A rejected badge must not look like an award
+With artwork behind it, **✕ This badge has been altered** still rendered as a glossy gold certificate — the headline said no and everything under it said yes. So the crest is now drained unless the verdict is **✓ Certified**: grayscale and dimmed for a failed badge, lightly muted for one that merely cannot be confirmed yet. Gold is reserved for a badge that passed.
+
+Checked at desktop and 375px, on every verdict: certified in full colour, *not on the record* muted, *altered* grey and dead, and no horizontal overflow on either page.
 
 ## What changed in v7.4
 - **Every winner on the Top List now carries its own QR**, beside the row. A player can scan their result straight off the screen, or tap it on the page. Only the podium has one, because only the podium has a badge.
