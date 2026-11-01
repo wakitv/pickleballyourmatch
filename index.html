@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.8">
+  <link rel="stylesheet" href="style.css?v=6.9.1">
 </head>
 <body>
   <div class="app-shell">
@@ -20,7 +20,7 @@
           <p>Smart Pickleball Matchmaker</p>
         </div>
       </div>
-      <div class="top-actions"><button class="btn btn-ghost" id="importBtn" type="button" title="Load a saved session file">Import</button><button class="btn btn-ghost" id="exportBtn" type="button" title="Save the whole session to a file">Export</button><input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" tabindex="-1" aria-hidden="true"><a class="btn btn-ghost" href="toplist/index.html" title="Published winners">🏆 Top List</a><button class="btn btn-ghost hidden" id="sheetQuickBtn" type="button" title="Save this session to the connected spreadsheet">📊 Save to Sheet</button><button class="btn btn-ghost" id="resetBtn" type="button">Reset</button></div>
+      <div class="top-actions"><a class="btn btn-ghost" href="toplist/index.html" title="Published winners">🏆 Top List</a><button class="btn btn-ghost hidden" id="sheetQuickBtn" type="button" title="Send this session to the spreadsheet right now">📊 Save now</button><button class="btn btn-ghost" id="resetBtn" type="button">Reset</button></div>
     </header>
 
     <div class="menu-wrap">
@@ -135,9 +135,9 @@
             </div>
             <div class="setting setting-featured setting-wide sheet-setting">
               <span>📊 Google Sheet</span>
-              <p class="sheet-intro">Save each session's standings to a spreadsheet. Deploy the script in
-                <code>sheets/Code.gs</code> as a Web App, then paste its URL and secret phrase here.
-                They are kept on this device only.</p>
+              <p class="sheet-intro">Where sessions are kept. Deploy the script in <code>sheets/Code.gs</code>
+                as a Web App, paste its URL and secret phrase here, and every session saves itself as it is
+                played. Reset starts a new one. The URL and phrase stay on this device only.</p>
               <label class="sheet-field">Web App URL
                 <input type="url" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec"
                   autocomplete="off" spellcheck="false">
@@ -147,7 +147,7 @@
                   autocomplete="off" spellcheck="false">
               </label>
               <div class="sheet-actions">
-                <button type="button" class="btn btn-success" id="sheetSaveBtn">Save this session</button>
+                <button type="button" class="btn btn-success" id="sheetSaveBtn">Save now</button>
                 <button type="button" class="btn btn-ghost" id="sheetTestBtn">Test connection</button>
                 <button type="button" class="btn btn-ghost" id="sheetForgetBtn">Forget</button>
               </div>
@@ -224,21 +224,6 @@
     </main>
   </div>
 
-  <div id="importModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="importTitle">
-    <div class="modal-card">
-      <button class="modal-close" id="closeImportModal" type="button" aria-label="Close">×</button>
-      <div class="modal-icon">📂</div>
-      <h3 id="importTitle">Import session</h3>
-      <p>Check the saved session below, then press Import to restore it.</p>
-      <div id="importSummary" class="import-summary"></div>
-      <div class="import-actions">
-        <button class="btn btn-success" type="button" id="importConfirmBtn">Import this session</button>
-        <button class="btn btn-ghost hidden" type="button" id="importBackupBtn">Export current first</button>
-        <button class="btn btn-ghost" type="button" id="importCancelBtn">Cancel</button>
-      </div>
-    </div>
-  </div>
-
   <div id="changeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="changeTitle">
     <div class="modal-card change-card">
       <button class="modal-close" id="closeChangeModal" aria-label="Close">×</button>
@@ -307,11 +292,11 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=6.8"></script>
-  <script src="qr.js?v=6.8"></script>
-  <script src="sha256.js?v=6.8"></script>
-  <script src="badge-core.js?v=6.8"></script>
-  <script src="badges.js?v=6.8"></script>
-  <script src="sheets.js?v=6.8"></script>
+  <script src="app.js?v=6.9.1"></script>
+  <script src="qr.js?v=6.9.1"></script>
+  <script src="sha256.js?v=6.9.1"></script>
+  <script src="badge-core.js?v=6.9.1"></script>
+  <script src="badges.js?v=6.9.1"></script>
+  <script src="sheets.js?v=6.9.1"></script>
 </body>
 </html>

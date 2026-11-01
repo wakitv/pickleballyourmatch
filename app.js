@@ -127,8 +127,18 @@ function pairLabel([a, b]) {
   return `${pa ? pa.name : `#${a}`} + ${pb ? pb.name : `#${b}`}`;
 }
 
+// A new id each time a session starts, so Reset begins a genuinely separate
+// set of rows in the spreadsheet. Fixed for the life of the session rather
+// than derived from its results, which would change with every match played.
+function newSessionId() {
+  const stamp = Date.now().toString(36).toUpperCase().slice(-4);
+  const rand = Math.floor(Math.random() * 36).toString(36).toUpperCase();
+  return stamp + rand;
+}
 function defaultState() {
-  return { players: [], rounds: [], nextPlayerId: 1, nextRoundId: 1, queueSeq: 1, courtCount: 2, gameLimit: 0, courtRules: defaultCourtRules(), fixedPairs: [] };
+  return { players: [], rounds: [], nextPlayerId: 1, nextRoundId: 1, queueSeq: 1, courtCount: 2,
+    gameLimit: 0, courtRules: defaultCourtRules(), fixedPairs: [], sessionId: newSessionId(),
+    startedAt: new Date().toISOString() };
 }
 function loadState() {
   try {
@@ -170,6 +180,8 @@ function normalizeState(raw) {
     // naming a player who already appears in an earlier pair.
     const ids = new Set(s.players.map(p => Number(p.id)));
     const taken = new Set();
+    s.sessionId = typeof s.sessionId === "string" && s.sessionId ? s.sessionId : newSessionId();
+    s.startedAt = typeof s.startedAt === "string" && s.startedAt ? s.startedAt : new Date().toISOString();
     s.fixedPairs = (Array.isArray(s.fixedPairs) ? s.fixedPairs : []).reduce((keep, pair) => {
       if (!Array.isArray(pair) || pair.length !== 2) return keep;
       const a = Number(pair[0]), b = Number(pair[1]);
@@ -217,6 +229,8 @@ function saveState() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch { toast("Could not save: browser storage is full or blocked."); }
   render();
+  // The spreadsheet link listens for this to auto-save.
+  document.dispatchEvent(new CustomEvent("picklematch:changed"));
 }
 function esc(value) {
   return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1843,15 +1857,10 @@ document.addEventListener("keydown", e => {
   if (e.key === "Enter" && e.target.classList?.contains("score-input")) { e.preventDefault(); recordScore(); }
 });
 
-// ---- backup: export / import the whole session as a JSON file ----
-// The file holds the complete state (players, every match, ratings, settings)
-// under "state", plus a human-readable "summary" (standings + match results)
-// for reading the file outside the app. Import only uses "state".
-const APP_VERSION = "6.8";
-function pad2(n) { return String(n).padStart(2, "0"); }
-function fileStamp(d = new Date()) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}`;
-}
+// ---- session summary ----
+// Standings and match results in a readable shape. The spreadsheet link in
+// sheets.js sends this; nothing else reads it.
+const APP_VERSION = "6.9";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;
@@ -1885,99 +1894,6 @@ function buildSessionSummary() {
     }))
   };
 }
-document.getElementById("exportBtn").addEventListener("click", exportSession);
-function exportSession() {
-  const now = new Date();
-  const file = {
-    app: "PickleMatch",
-    version: APP_VERSION,
-    exportedAt: now.toISOString(),
-    summary: buildSessionSummary(),
-    state
-  };
-  const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `picklematch-session-${fileStamp(now)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(`Session exported: ${state.players.filter(p => p.active !== false).length} players, ${state.rounds.filter(r => r.status === "completed").length} matches.`);
-}
-
-let pendingImport = null;
-document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
-document.getElementById("importFile").addEventListener("change", e => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = ""; // allow picking the same file again later
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    let parsed;
-    try { parsed = JSON.parse(String(reader.result)); }
-    catch { return toast("That file is not a valid PickleMatch export (not JSON)."); }
-    // New exports wrap the data in { app, exportedAt, state }; v4.6 and older
-    // exported the raw state object directly. Accept both.
-    const raw = parsed && typeof parsed === "object" && parsed.state && typeof parsed.state === "object" ? parsed.state : parsed;
-    if (!raw || typeof raw !== "object" || !Array.isArray(raw.players) || !Array.isArray(raw.rounds)) {
-      return toast("That file is not a PickleMatch session export.");
-    }
-    let next;
-    try { next = normalizeState(JSON.parse(JSON.stringify(raw))); }
-    catch { return toast("This session file is damaged and could not be read."); }
-    pendingImport = next;
-    openImportPreview(next, parsed.exportedAt, file.name);
-  };
-  reader.onerror = () => toast("Could not read that file.");
-  reader.readAsText(file);
-});
-function openImportPreview(next, exportedAt, fileName) {
-  const active = next.players.filter(p => p.active !== false);
-  const done = next.rounds.filter(r => r.status === "completed").length;
-  const pend = next.rounds.filter(r => r.status === "pending").length;
-  const when = exportedAt && !isNaN(new Date(exportedAt)) ? new Date(exportedAt).toLocaleString() : "Unknown date (older export)";
-  // Same order as the Leaderboard (score, then point difference, wins ...).
-  const top = leaderboardOrder(active.filter(p => p.games > 0), pointDiffByPlayer(next.rounds)).slice(0, 3)
-    .map((p, i) => `${["🥇", "🥈", "🥉"][i]} ${esc(p.name)}`).join("&nbsp; ");
-  const curPlayers = activePlayers().length, curDone = state.rounds.filter(r => r.status === "completed").length;
-  document.getElementById("importSummary").innerHTML = `
-    <div class="import-file">📄 ${esc(fileName)}</div>
-    <div class="import-grid">
-      <div><span>Saved</span><b>${esc(when)}</b></div>
-      <div><span>Players</span><b>${active.length}</b></div>
-      <div><span>Matches played</span><b>${done}</b></div>
-      <div><span>Active matches</span><b>${pend}</b></div>
-      <div><span>Courts</span><b>${next.courtCount}</b></div>
-      <div><span>Games per player</span><b>${next.gameLimit || "No limit"}</b></div>
-      <div><span>Fixed partners</span><b>${(next.fixedPairs || []).length || "None"}</b></div>
-      <div><span>Court levels</span><b>${next.courtRules && next.courtRules.enabled
-        ? esc([1, 2].slice(0, next.courtCount).map(c => `C${c} ${bandRangeText(next.courtRules[c])}`).join(" · "))
-        : "Off"}</b></div>
-    </div>
-    ${top ? `<div class="import-top">🏆 Top players: ${top}</div>` : ""}
-    ${curPlayers || curDone ? `<div class="import-warn">⚠️ This replaces the current session (${curPlayers} player${curPlayers === 1 ? "" : "s"}, ${curDone} match${curDone === 1 ? "" : "es"}). Export it first if you want to keep it.</div>` : ""}`;
-  document.getElementById("importBackupBtn").classList.toggle("hidden", !(curPlayers || curDone));
-  closeAllModals();
-  document.getElementById("importModal").classList.remove("hidden");
-}
-function closeImportModal() {
-  document.getElementById("importModal").classList.add("hidden");
-  pendingImport = null;
-}
-document.getElementById("closeImportModal").onclick = closeImportModal;
-document.getElementById("importCancelBtn").onclick = closeImportModal;
-document.getElementById("importBackupBtn").onclick = exportSession;
-document.getElementById("importConfirmBtn").onclick = () => {
-  if (!pendingImport) return closeImportModal();
-  state = pendingImport;
-  pendingImport = null;
-  document.getElementById("importModal").classList.add("hidden");
-  saveState();
-  toast(`Session imported: ${activePlayers().length} players, ${state.rounds.filter(r => r.status === "completed").length} matches restored.`);
-};
-
-// ---- top menu: every item opens its section as a popup, like Add player ----
 function closeAllModals() {
   closeModal();
   closeChangeModal();

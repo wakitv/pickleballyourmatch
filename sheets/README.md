@@ -52,8 +52,12 @@ again on each device you use.
 
 ## Saving
 
-Press **Save this session** in Match settings, or **📊 Save to Sheet** in the top bar,
-which appears once a sheet is connected. You get:
+Once the URL and phrase are in, **saving is automatic**. Any change to the players or
+the results schedules a save a few seconds later, so the sheet keeps up on its own.
+**Save now** (in Match settings, or the top bar) forces one immediately if you want to
+be sure before packing up.
+
+**Reset starts a new session**, which saves as its own separate rows. You get:
 
 - **Sessions** — one row per session: when it was saved, the session id, the date,
   how many players and matches, courts, games per player, and the top three names.
@@ -61,10 +65,13 @@ which appears once a sheet is connected. You get:
   difference, rating and starting rating.
 
 Saving the same session again **replaces its earlier rows** rather than duplicating
-them, so you can save as you go and still end up with one row per session. A session's
-id is a fingerprint of its finished results, so it changes as more matches are played —
-saving mid-session and again at the end will leave you with a row for each stage. Save
-once at the end if you want exactly one row per session.
+them. A session keeps one id from the moment it starts until you press Reset, so
+however many times it saves itself along the way, it stays a single row that fills in
+as the session goes on.
+
+**The sheet is a record, not a backup you can load.** Nothing reads it back into the
+app: Reset still clears the session from the browser for good, and there is no way to
+reopen an old session from the spreadsheet. If that matters, say so and it can be added.
 
 ## If it does not work
 

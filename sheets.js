@@ -2,9 +2,15 @@
   sheets.js — save a session to a Google Sheet.
 
   The organiser deploys the Apps Script in sheets/Code.gs as a Web App and
-  pastes its URL and secret phrase into Match settings. Pressing Save sends
-  the session's standings there, which appends a row per player and one for
-  the session itself.
+  pastes its URL and secret phrase into Match settings. From then on the
+  session saves itself: any change to players or results schedules a save a
+  few seconds later, so the spreadsheet keeps up without anyone pressing
+  anything. Re-saving replaces the session's earlier rows, so a session stays
+  one row however many times it is sent.
+
+  This is the only place a session is kept outside the browser -- there is no
+  file export any more. It is a record, not a restore point: nothing reads the
+  sheet back into the app.
 
   Two things worth knowing about how this talks to Apps Script:
 
@@ -64,20 +70,21 @@
       else if (!looksLikeUrl()) say("That does not look like a URL.", "warn");
       else if (!cfg.token) say("Add the secret phrase you set in the script.", "warn");
       else if (!isAppsScript()) say("Ready, though that is not a script.google.com address — check it is the Web App URL.", "warn");
-      else say(cfg.lastSaved ? `Connected. Last saved ${cfg.lastSaved}.` : "Connected. Nothing saved from this browser yet.", "ok");
+      else say(cfg.lastSaved
+        ? `Connected — saving automatically. Last saved ${cfg.lastSaved}.`
+        : "Connected — this session will save itself as matches are played.", "ok");
     }
   }
 
   /* ---------- what gets sent ---------- */
   function payload(extra) {
     const summary = buildSessionSummary();
-    const names = activePlayers().map(p => p.name);
     const standings = summary.standings || [];
     return Object.assign({
       token: cfg.token,
       app: "PickleMatch",
       savedAt: new Date().toISOString(),
-      session: BadgeCore.sessionId(state.rounds, names),
+      session: state.sessionId,
       date: new Date().toISOString().slice(0, 10),
       playerCount: summary.players,
       matchesPlayed: summary.matchesPlayed,
@@ -115,6 +122,8 @@
 
   async function saveSession(silent) {
     if (!configured()) return;
+    clearTimeout(timer);
+    lastSent = "";                              // an explicit press always sends
     const completed = state.rounds.filter(r => r.status === "completed").length;
     if (!completed) {
       say("Nothing to save yet — finish at least one match first.", "warn");
@@ -126,8 +135,9 @@
     try {
       const out = await post(payload());
       if (!out.ok) return say(out.error || "The script refused the save.", "bad");
-      cfg.lastSaved = new Date().toLocaleString();
+      cfg.lastSaved = new Date().toLocaleTimeString();
       store();
+      try { lastSent = fingerprint(); } catch { /* ignore */ }
       const replaced = out.replacedRows ? ` (replacing ${out.replacedRows} earlier row${out.replacedRows === 1 ? "" : "s"})` : "";
       say(`Saved session ${out.session}: ${out.playersSaved} player rows${replaced}.`, "ok");
       if (!silent) toast(`Session saved to "${out.sheet}".`);
@@ -148,6 +158,59 @@
     return msg;
   }
 
+  /* ---------- automatic saving ---------- */
+  // Every state change fires picklematch:changed, which is far more often
+  // than is worth sending. Wait for the activity to settle, then send once.
+  const SETTLE_MS = 4000;
+  let timer = null, lastSent = "", inFlight = false, queued = false;
+
+  function fingerprint() {
+    // Only the parts that end up in the spreadsheet.
+    const p = payload();
+    return JSON.stringify([p.session, p.playerCount, p.matchesPlayed, p.players]);
+  }
+
+  async function autoSave() {
+    if (!configured() || inFlight) { queued = inFlight; return; }
+    if (!state.rounds.some(r => r.status === "completed")) return;
+    let print;
+    try {
+      print = fingerprint();
+    } catch (err) {
+      say("Could not read the session to save it: " + (err && err.message ? err.message : err), "bad");
+      ui.status.dataset.idle = "";
+      return;
+    }
+    if (print === lastSent) return;            // nothing new to send
+
+    inFlight = true;
+    say("Saving…");
+    ui.status.dataset.idle = "";
+    try {
+      const out = await post(payload());
+      if (out.ok) {
+        lastSent = print;
+        cfg.lastSaved = new Date().toLocaleTimeString();
+        store();
+        say(`Saved automatically at ${cfg.lastSaved} — session ${out.session}, ${out.playersSaved} players.`, "ok");
+      } else {
+        say((out.error || "The script refused the save.") + " Automatic saving is paused until this is fixed.", "bad");
+      }
+    } catch (err) {
+      say(failure(err), "bad");
+    } finally {
+      inFlight = false;
+      if (queued) { queued = false; schedule(); }
+    }
+  }
+
+  function schedule() {
+    if (!configured()) return;
+    clearTimeout(timer);
+    timer = setTimeout(autoSave, SETTLE_MS);
+  }
+  document.addEventListener("picklematch:changed", schedule);
+
   /* ---------- wiring ---------- */
   ui.url.addEventListener("change", () => {
     cfg.url = ui.url.value.trim();
@@ -158,6 +221,7 @@
     store(); ui.status.dataset.idle = "1"; render();
   });
   ui.test.addEventListener("click", testConnection);
+  [ui.url, ui.token].forEach(input => input.addEventListener("change", schedule));
   ui.save.addEventListener("click", () => saveSession(false));
   ui.forget.addEventListener("click", () => {
     if (!confirm("Forget the spreadsheet URL and secret phrase on this device?")) return;

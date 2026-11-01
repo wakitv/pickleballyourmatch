@@ -28,7 +28,7 @@
   /* ---------- session identity ---------- */
   // A short fingerprint of this session's finished results, so two different
   // sessions never mint the same badge.
-  const sessionId = () => BC.sessionId(state.rounds, activePlayers().map(p => p.name));
+  const sessionId = () => state.sessionId;
 
   function topThree() {
     const diff = pointDiffByPlayer();

@@ -1,4 +1,15 @@
-# PickleMatch v6.8 — Save Sessions to a Google Sheet
+# PickleMatch v6.9 — The Spreadsheet Is the Record
+
+## What changed in v6.9
+- **Import and Export are gone.** The file-based backup, its preview dialog and all of its code and CSS have been removed. The Google Sheet is where sessions are kept now.
+- **Saving is automatic.** Once the Web App URL and secret phrase are in Match settings, any change to players or results schedules a save a few seconds later. **Save now** forces one immediately. Nothing else to press.
+- **Reset starts a new session.** Each session carries its own id from the moment it begins, so Reset gives you a genuinely separate set of rows in the sheet.
+
+The session id had to change for this to work. It used to be a fingerprint of the finished results, which meant it changed every time a match was recorded — each auto-save would have landed as a brand new session. It is now generated once when a session starts and held in the session's own state, so a session stays one row that fills in as it is played. Badges use the same id, so a badge and a spreadsheet row still name the same session.
+
+Verified end to end: connected a sheet, played a session and watched it save itself; played more matches and confirmed it re-sent under the same id; sat idle and confirmed nothing further was sent; pressed Reset, played a second session, and confirmed a new id. The three payloads the browser actually sent were then replayed through the real `Code.gs`, which produced exactly two session rows and four player rows each.
+
+**Worth knowing:** the sheet is a record, not a restore point. Nothing reads it back into the app, so Reset still clears the browser's copy for good and an old session cannot be reopened from the spreadsheet. Loading a session back in would be a separate piece of work.
 
 ## What changed in v6.8
 PickleMatch can now append each session's standings to a Google Sheet you own. Full setup is in **[sheets/README.md](sheets/README.md)**; the short version is: paste `sheets/Code.gs` into your sheet's Apps Script, deploy it as a Web App, and give PickleMatch the URL and a secret phrase.
@@ -167,7 +178,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.8`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.9`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero
