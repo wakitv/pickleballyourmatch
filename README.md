@@ -1,4 +1,21 @@
-# BuenasxPickle v7.7 — New Name, New Colours
+# BuenasxPickle v7.8 — Dark Mode and Light Mode
+
+## What changed in v7.8
+A **☀️ / 🌙 button** in the top bar of all three pages switches between dark and light. The choice is remembered in that browser; without one, the page follows the device, so a phone in dark mode opens dark.
+
+**The theme is set before the first paint**, by a few lines inline in each `<head>` rather than by `theme.js`. A page that renders dark and then turns white is worse than either, and a stylesheet cannot be waited on for that. `theme.js` only wires the button to what those lines already decided.
+
+### What this needed first
+Light mode was not just a second set of colours — a handful of surfaces were written as literals in the rules that used them, so they could not invert:
+
+- `--inset` (the wells behind inputs, court cards and pair rows), `--tint` (the barely-there raise on chips and the QR tile), `--menu-bg` (the sticky menu bar) and `--toast-bg` / `--toast-ink` are tokens now.
+- The page wash behind everything is `--wash`, so light mode gets a softer one rather than the dark mode's glow at full strength.
+- The orange **deepens** to `#e85d04` in light mode. `#ff7a18` on white is too pale to read at small sizes; on near-black it is not.
+
+### Two things that stay dark in both
+The **hero** and the **badge crest on the certificate** are artwork, not surface, so they keep their own dark backing — and their text no longer inherits the page's text colour. That was a real bug in the first pass: in light mode the hero heading went dark-on-dark and vanished, as did the certificate's Batch/Session/Date values.
+
+Checked in both modes at 1280px and 375px — main page, Match settings, the Top List and the certificate — with no horizontal overflow, the switch persisting across a reload, and the key-shadow under Generate Matches warmed in light mode so it reads as depth rather than a grey slab.
 
 ## What changed in v7.7
 The app is **BuenasxPickle** now, in orange and white, with your logo as its mark.
