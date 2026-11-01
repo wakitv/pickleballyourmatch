@@ -1,3 +1,5 @@
+// Kept under the old name on purpose: renaming it would orphan every
+// session already saved in someone's browser.
 const STORAGE_KEY = "picklematch_v2";
 const GAME_LIMIT_MAX = 30; // must be defined before loadState() runs below
 
@@ -150,7 +152,7 @@ function loadState() {
   }
 }
 // Shared by loadState and Import: fills defaults and fixes types so data from
-// any PickleMatch version (or a hand-edited file) is safe to use.
+// any BuenasxPickle version (or a hand-edited file) is safe to use.
 function normalizeState(raw) {
     const s = raw;
     s.players = Array.isArray(s.players) ? s.players : [];
@@ -191,7 +193,7 @@ function normalizeState(raw) {
       return keep;
     }, []);
 
-    // Migration/normalization: older PickleMatch versions could store IDs as
+    // Migration/normalization: older BuenasxPickle versions could store IDs as
     // strings. CHANGE/REMOVE must work regardless of which version created the data.
     s.players.forEach(p => {
       p.id = Number(p.id);
@@ -572,7 +574,7 @@ document.getElementById("resetBtn").onclick = async () => {
   }
   state = defaultState();
   saveState();
-  toast("PickleMatch has been reset.");
+  toast("BuenasxPickle has been reset.");
 };
 
 document.getElementById("closeModal").onclick = closeModal;
@@ -1003,9 +1005,9 @@ function recordScore() {
 }
 
 /*
-  PickleMatch Dynamic Doubles Rating (PDDR)
+  BuenasxPickle Dynamic Doubles Rating (PDDR)
   ------------------------------------------------
-  This is PickleMatch's own club rating model. It is NOT an official DUPR
+  This is BuenasxPickle's own club rating model. It is NOT an official DUPR
   rating and does not submit results to DUPR. It follows public pickleball
   rating principles: performance vs expectation, opponent/team strength,
   score margin, and higher volatility for players with fewer results.
@@ -1870,7 +1872,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "7.6";
+const APP_VERSION = "7.7";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;

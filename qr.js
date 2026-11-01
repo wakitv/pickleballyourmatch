@@ -1,7 +1,7 @@
 /*
   qr.js — a small QR encoder (byte mode, ECC level L or M, versions 1-15)
   ----------------------------------------------------------------------
-  PickleMatch ships no libraries, so the badge QR codes are generated here.
+  BuenasxPickle ships no libraries, so the badge QR codes are generated here.
   Enough of ISO/IEC 18004 is implemented to produce a correct symbol for the
   short URLs and text payloads a badge carries, and the output was checked
   module for module against a reference encoder across every version below.

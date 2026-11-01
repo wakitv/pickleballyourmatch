@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Serve PickleMatch on your local network.
+Serve BuenasxPickle on your local network.
 
 Why this exists: a badge's QR code holds a link back to the page it was made
 on. Open the app as a file, or at localhost, and that link only works on this
@@ -82,7 +82,7 @@ def main():
     shared = f"http://{ip}:{port}/" if ip else None
 
     line = "=" * 58
-    print(f"\n{line}\n  PickleMatch is running\n{line}")
+    print(f"\n{line}\n  BuenasxPickle is running\n{line}")
     if shared:
         print(f"  On this computer : {here}")
         print(f"  On your phone    : {shared}")

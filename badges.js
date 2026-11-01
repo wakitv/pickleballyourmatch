@@ -3,7 +3,7 @@
   --------------------------------------------
   Turns the top three of the leaderboard into gold crest images you can save
   and share. Each badge carries a QR code holding the result itself plus a
-  check code, so scanning it opens PickleMatch and shows the badge details
+  check code, so scanning it opens BuenasxPickle and shows the badge details
   back with a pass/fail on that check.
 
   Honest about what the check is worth: everything runs in the browser, so the
@@ -54,7 +54,7 @@
     if (location.protocol === "http:" || location.protocol === "https:") {
       return `${toplistUrl()}verify.html#b=${b64uEnc(signed)}`;
     }
-    return `PICKLEMATCH TOP ${e.rank} | ${e.name} | ${e.wins}W-${e.losses}L | ${day} | ${code}`;
+    return `BUENASXPICKLE TOP ${e.rank} | ${e.name} | ${e.wins}W-${e.losses}L | ${day} | ${code}`;
   }
 
   /* ---------- background art ---------- */
@@ -158,7 +158,7 @@
     g.font = "800 104px 'Bricolage Grotesque', system-ui, sans-serif";
     g.fillText(`TOP ${e.rank}`, W / 2, 262);
 
-    g.fillStyle = "#e9f6ee";
+    g.fillStyle = "#fbf7f3";
     g.font = "700 29px 'DM Sans', system-ui, sans-serif";
     g.fillText(rank.word, W / 2, 308);
 
@@ -178,7 +178,7 @@
     roundRect(g, bx, by, bw, bh, 16); g.fill();
     g.strokeStyle = "rgba(246,212,74,.3)"; g.lineWidth = 1.5;
     roundRect(g, bx, by, bw, bh, 16); g.stroke();
-    g.fillStyle = "#9bb0a4";
+    g.fillStyle = "#c3b4a4";
     g.font = "700 15px 'DM Sans', system-ui, sans-serif";
     g.fillText("WINS / LOSSES", W / 2, by + 30);
     g.fillStyle = gold;
@@ -202,16 +202,16 @@
 
     const afterQr = qy + box + 28;
     withHalo(g, true);
-    g.fillStyle = "#dfe9e3";
+    g.fillStyle = "#efe6dc";
     g.font = "700 15px 'DM Sans', system-ui, sans-serif";
     g.fillText("SCAN TO VERIFY", W / 2, afterQr);
     g.fillStyle = gold;
     g.font = "800 29px ui-monospace, 'DM Sans', monospace";
     g.fillText(code, W / 2, afterQr + 38);
 
-    g.fillStyle = "rgba(233,246,238,.8)";
+    g.fillStyle = "rgba(251,247,243,.8)";
     g.font = "600 16px 'DM Sans', system-ui, sans-serif";
-    g.fillText(`PICKLEMATCH  ·  ${day}  ·  SESSION ${sid}`, W / 2, H - 40);
+    g.fillText(`BUENASXPICKLE  ·  ${day}  ·  SESSION ${sid}`, W / 2, H - 40);
     withHalo(g, false);
   }
 
@@ -288,7 +288,7 @@
             if (!blob) return toast("The badge image could not be created.");
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
-            a.download = `picklematch-top${b.e.rank}-${b.e.name.replace(/[^\w]+/g, "-").toLowerCase()}.png`;
+            a.download = `buenasxpickle-top${b.e.rank}-${b.e.name.replace(/[^\w]+/g, "-").toLowerCase()}.png`;
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
             toast(`Top ${b.e.rank} badge saved.`);

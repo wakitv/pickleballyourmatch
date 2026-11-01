@@ -1,13 +1,13 @@
 /**
- * PickleMatch <-> Google Sheets
+ * BuenasxPickle <-> Google Sheets
  * -----------------------------
  * Paste this into Apps Script on the spreadsheet you want sessions kept in,
- * set SECRET below, deploy it as a Web App, and give PickleMatch the URL.
+ * set SECRET below, deploy it as a Web App, and give BuenasxPickle the URL.
  * Setup steps are in sheets/README.md.
  *
  * It does two jobs:
  *
- *   POST  - PickleMatch sends a session; this appends to three tabs, creating
+ *   POST  - BuenasxPickle sends a session; this appends to three tabs, creating
  *           them with headings on first use:
  *             Sessions - one row each time a session is saved
  *             Players  - one row per player, per save
@@ -29,7 +29,7 @@
  * or picking up a sheet from an older version will not shift the data.
  */
 
-// Change this to any phrase you like, then put the same phrase in PickleMatch.
+// Change this to any phrase you like, then put the same phrase in BuenasxPickle.
 // The web app has to be reachable by anyone for a browser to use it, so this
 // is what stops a stranger who finds the URL from writing to your sheet.
 var SECRET = 'change-me';
@@ -156,7 +156,7 @@ function doGet() {
   }
 }
 
-/* ---------- write: a session from PickleMatch ---------- */
+/* ---------- write: a session from BuenasxPickle ---------- */
 
 function doPost(e) {
   try {

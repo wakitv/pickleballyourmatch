@@ -94,7 +94,7 @@
     const standings = summary.standings || [];
     return Object.assign({
       token: cfg.token,
-      app: "PickleMatch",
+      app: "BuenasxPickle",
       savedAt: new Date().toISOString(),
       session: state.sessionId,
       date: String(state.startedAt || new Date().toISOString()).slice(0, 10),

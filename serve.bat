@@ -1,5 +1,5 @@
 @echo off
-rem Double-click this to run PickleMatch so badge QR codes work on your phone.
+rem Double-click this to run BuenasxPickle so badge QR codes work on your phone.
 setlocal
 cd /d "%~dp0"
 

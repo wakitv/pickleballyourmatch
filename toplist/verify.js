@@ -72,7 +72,7 @@
     try { info = BadgeCore.parse(BadgeCore.b64uDec(raw)); } catch { info = null; }
 
     if (!info) {
-      return show("bad", "✕ Not a PickleMatch badge",
+      return show("bad", "✕ Not a BuenasxPickle badge",
         note("This link does not carry badge details this page can read."));
     }
     if (!info.ok) {
@@ -100,7 +100,7 @@
         card(info, null)
         + note("The badge's own checksum passes, so nothing on it has been edited. It is not in "
           + "the organiser's spreadsheet though, which usually means the session has not been "
-          + "saved yet — pressing Reset in PickleMatch is what saves it.", "index.html"));
+          + "saved yet — pressing Reset in BuenasxPickle is what saves it.", "index.html"));
     }
 
     // A row whose own fingerprint fails is the spreadsheet's problem, not the

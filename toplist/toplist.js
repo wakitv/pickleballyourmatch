@@ -73,7 +73,7 @@
     }
     if (!data.entries.length) {
       body.className = "toplist-body empty";
-      body.textContent = "No winners yet. Finish a session in PickleMatch and press Reset — "
+      body.textContent = "No winners yet. Finish a session in BuenasxPickle and press Reset — "
         + "that is what writes it to the spreadsheet, and it appears here straight away.";
       summary.textContent = "Nothing saved yet";
       fp.textContent = "—";
@@ -150,7 +150,7 @@
     box.classList.remove("hidden");
     if (!info) {
       box.className = "scan-result bad";
-      box.innerHTML = `<div class="scan-head">✕ Not a PickleMatch badge</div>
+      box.innerHTML = `<div class="scan-head">✕ Not a BuenasxPickle badge</div>
         <p>This link does not carry badge details we can read.</p>`;
       return;
     }
@@ -179,7 +179,7 @@
         ? "The badge itself is intact, but the winners list could not be read here, so it cannot be "
           + "checked against the record."
         : "The badge itself is intact, but this session has not been saved to the spreadsheet yet, "
-          + "so it cannot be confirmed as official. Pressing Reset in PickleMatch is what saves it.";
+          + "so it cannot be confirmed as official. Pressing Reset in BuenasxPickle is what saves it.";
       box.innerHTML = `<div class="scan-head">⚠ ${unreadable
         ? "Badge is intact, list unavailable" : "Genuine badge, not on the list yet"}</div>${card}
         <p>${why}</p>`;

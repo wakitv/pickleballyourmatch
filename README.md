@@ -1,4 +1,19 @@
-# PickleMatch v7.6 — Generate Matches Where the Matches Are
+# BuenasxPickle v7.7 — New Name, New Colours
+
+## What changed in v7.7
+The app is **BuenasxPickle** now, in orange and white, with your logo as its mark.
+
+- **The name** is in the title, the top bar, the badge footer, the Top List and the certificate page. The top bar sets it the way the logo does: *Buenas* in white, *xPickle* in orange.
+- **The logo** (`logo.webp`) is the brand mark on all three pages, and `icon.webp` is the browser-tab icon. Both are resized from the original — 512px and 180px — so a 1254px image is not downloaded on every page load. The artwork has a white background, so it sits on a white tile, which is also the other half of the brand's two colours.
+- **The palette is orange on a warm near-black**, with white text. The accent token is still called `--lime` so every rule that already pointed at the accent moved with it; its value is now `#ff7a18`. Backgrounds, borders, inputs, the sticky menu bar and the hero all moved from green to warm neutrals, and the badge canvas followed.
+
+### Where green survives, and why
+Green is kept for the handful of places it carries meaning rather than brand: a **result saved**, a **match won**, an **evenly matched** pairing, and a **verified badge** on the certificate. Turning those orange would have merged them with *pending*, *in play* and every other accent, which is exactly the distinction they exist to make. Everything decorative — avatars, CHANGE buttons, counts, chips — is orange.
+
+### What deliberately did not change
+`picklematch_v2` and `picklematch_sheet` in localStorage, the `picklematch:changed` event, and the `PM3` prefix inside every badge QR. Renaming those would orphan sessions already saved in a browser and invalidate every badge already printed. They are internal identifiers; nobody sees them.
+
+Checked on every screen at 1280px and 375px — main page, Match settings, the badges modal, the Top List and the certificate — with no horizontal overflow, and the badge canvas now reads BUENASXPICKLE.
 
 ## What changed in v7.6
 **Generate Matches moved out of the hero and into the Active Matches heading**, beside the courts it fills. It was sitting at the top of the page, a panel away from the thing it acts on, and the empty state right underneath it had to say *"press Generate Matches"* to point back up at it.
