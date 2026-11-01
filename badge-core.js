@@ -63,8 +63,15 @@
   const canonical = e =>
     [e.id, e.batch, e.rank, e.name, e.wins, e.losses, e.day, e.session, e.code].join("|");
 
+  // A badge read back out of the spreadsheet, turned into the exact payload
+  // its QR carries. Lets a stored row be re-derived rather than trusted: if
+  // someone edits a name in the sheet, the fingerprint stops matching.
+  const rebuild = e => sign(e, e.day, e.session).signed;
+  const fingerprint = e => sha256(rebuild(e));
+
   window.BadgeCore = {
     PREFIX, checkOf, codeLabel, b64uEnc, b64uDec,
-    shortDay, longDay, body, sign, parse, entryId, canonical
+    shortDay, longDay, body, sign, parse, entryId, canonical,
+    rebuild, fingerprint
   };
 })();

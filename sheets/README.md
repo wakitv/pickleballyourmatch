@@ -6,7 +6,7 @@ about five minutes to set up, once.
 ## 1. Make the spreadsheet
 
 Create a new Google Sheet. You do not need to add any tabs or headings — the script
-creates a **Sessions** tab and a **Players** tab the first time it runs.
+creates a **Sessions**, a **Players** and a **Badges** tab the first time it runs.
 
 ## 2. Add the script
 
@@ -52,10 +52,10 @@ again on each device you use.
 
 ## Saving
 
-**A session is written once, when it ends.** Nothing is sent while you are playing;
-pressing **Reset** saves the finished session and only then clears it, so the sheet
-gets one row per session with its final figures and never writes the same session
-twice. **Save now** is there if you want to send a session without resetting.
+**A session is written once, when it ends, and Reset is the only thing that writes
+it.** Nothing is sent while you are playing; pressing **Reset** saves the finished
+session and only then clears it, so the sheet gets one row per session with its final
+figures and never writes the same session twice. There is no Save now button.
 
 **If the save fails, Reset does not clear anything.** You are told what went wrong and
 asked whether to drop the session anyway — because with no file export, the sheet is
@@ -68,6 +68,12 @@ glance where one session ends and the next begins. You get:
   how many players and matches, courts, games per player, and the top three names.
 - **Players** — one row per player: rank, name, score, games, wins, losses, point
   difference, rating and starting rating.
+- **Badges** — one row per Top 3 badge: its batch number, rank, player, record, the
+  badge code printed on it, its id, and a SHA-256 fingerprint of the badge's own
+  payload. This is where badges are kept now; there is no `toplist.json` any more.
+
+**The script assigns the batch number**, not the app, because only the sheet knows how
+many sessions came before. Re-saving a session keeps the number it already had.
 
 Should a session ever be sent twice, the script **replaces its earlier rows** rather
 than duplicating them, so a session can only ever be one row.
@@ -83,7 +89,8 @@ there as soon as it is saved — no publishing, no commit. It lists **everyone w
 played**, with the top three carrying their medal and badge code and the rest below
 them, and gives every batch its own colour.
 
-Open [`toplist/source.js`](../toplist/source.js) and paste the same Web App URL:
+This is the only source the page has, so the URL is not optional. Open
+[`toplist/source.js`](../toplist/source.js) and paste the same Web App URL:
 
 ```javascript
 window.TOPLIST_SOURCE = {
@@ -100,8 +107,8 @@ secret phrase, which lives only in the organiser's browser and never appears her
 one thing a stranger could do with the URL alone is read your winners, or send enough
 requests to eat into Google's daily quota for the script.
 
-If the URL is left empty, or the sheet cannot be reached, the page falls back to the
-committed `toplist/toplist.json` and says so in the heading.
+If the URL is left empty, or the sheet cannot be reached, the page says so plainly and
+shows nothing — there is no committed file to fall back to.
 
 ## If it does not work
 

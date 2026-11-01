@@ -7,17 +7,23 @@
  *
  * It does two jobs:
  *
- *   POST  - PickleMatch sends a session; this appends to two tabs, creating
+ *   POST  - PickleMatch sends a session; this appends to three tabs, creating
  *           them with headings on first use:
  *             Sessions - one row each time a session is saved
  *             Players  - one row per player, per save
+ *             Badges   - one row per Top 3 badge, with its code and batch
  *           Re-saving a session replaces its earlier rows, so a session stays
  *           one row however many times it is sent.
  *
- *   GET   - the public Top List page asks for the winners; this returns the
- *           top three of every session as JSON. No secret is needed to read,
- *           because that is the point of a published list. Writing still
- *           needs the secret.
+ *   GET   - the public Top List page asks for the winners; this returns every
+ *           session's players and every minted badge as JSON. No secret is
+ *           needed to read, because that is the point of a published list.
+ *           Writing still needs the secret.
+ *
+ * The Badges tab is the record of who holds a badge. Nothing is kept in a
+ * committed file any more: the spreadsheet is the only store, and the batch
+ * number is assigned here, because only this sheet knows how many sessions
+ * came before.
  *
  * Columns are matched by heading, not by position, so adding a column by hand
  * or picking up a sheet from an older version will not shift the data.
@@ -53,6 +59,21 @@ var SESSION_HEADERS = ['Saved at', 'Session', 'Date', 'Started at', 'Players',
   'Matches played', 'Courts', 'Games per player', 'Top 1', 'Top 2', 'Top 3'];
 var PLAYER_HEADERS = ['Saved at', 'Session', 'Date', 'Rank', 'Player', 'Score',
   'Games', 'Wins', 'Losses', 'Point diff', 'Rating', 'Starting rating'];
+var BADGE_HEADERS = ['Saved at', 'Session', 'Batch', 'Rank', 'Player', 'Wins',
+  'Losses', 'Day', 'Code', 'Badge id', 'Fingerprint'];
+
+// The batch number for a session: the one it already has if it has been saved
+// before, otherwise the next one up. Read this before removing the session's
+// old rows, or its number goes with them.
+function batchFor(sheet, session) {
+  var mine = 0, highest = 0;
+  readRows(sheet).forEach(function (row) {
+    var n = Number(row['Batch']) || 0;
+    if (n > highest) highest = n;
+    if (String(row['Session']) === String(session) && n) mine = n;
+  });
+  return mine || highest + 1;
+}
 
 /* ---------- read: the published winners ---------- */
 
@@ -61,8 +82,27 @@ function doGet() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var players = ss.getSheetByName('Players');
     var sessions = ss.getSheetByName('Sessions');
+
+    // The badges, and with them each session's batch number.
+    var badgeSheet = ss.getSheetByName('Badges');
+    var badges = [], batchOf = {};
+    if (badgeSheet && badgeSheet.getLastRow() > 1) {
+      readRows(badgeSheet).forEach(function (row) {
+        var id = String(row['Session']);
+        var batch = Number(row['Batch']) || 0;
+        if (batch) batchOf[id] = batch;
+        badges.push({
+          session: id, batch: batch, rank: Number(row['Rank']) || 0,
+          name: String(row['Player']), wins: Number(row['Wins']) || 0,
+          losses: Number(row['Losses']) || 0, day: asDay(row['Day']),
+          code: String(row['Code']), id: String(row['Badge id']),
+          fingerprint: String(row['Fingerprint'])
+        });
+      });
+    }
+
     if (!players || players.getLastRow() < 2) {
-      return json({ ok: true, sessions: [], sheet: ss.getName() });
+      return json({ ok: true, sessions: [], badges: badges, sheet: ss.getName() });
     }
 
     // When each session began, so the Top List can number them in order.
@@ -98,13 +138,19 @@ function doGet() {
     });
 
     var out = Object.keys(bySession).map(function (k) { return bySession[k]; });
-    out.forEach(function (s) { s.winners.sort(function (a, b) { return a.rank - b.rank; }); });
+    out.forEach(function (s) {
+      s.winners.sort(function (a, b) { return a.rank - b.rank; });
+      s.batch = batchOf[s.session] || 0;
+    });
     // Oldest first, so the Top List can number batches 1, 2, 3...
     out.sort(function (a, b) {
       return String(a.startedAt || a.savedAt).localeCompare(String(b.startedAt || b.savedAt));
     });
 
-    return json({ ok: true, sheet: ss.getName(), updated: new Date().toISOString(), sessions: out });
+    return json({
+      ok: true, sheet: ss.getName(), updated: new Date().toISOString(),
+      sessions: out, badges: badges
+    });
   } catch (err) {
     return json({ ok: false, error: String(err && err.message ? err.message : err) });
   }
@@ -132,8 +178,14 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sessions = sheetFor(ss, 'Sessions', SESSION_HEADERS);
     var players = sheetFor(ss, 'Players', PLAYER_HEADERS);
+    var badgeSheet = sheetFor(ss, 'Badges', BADGE_HEADERS);
 
-    var replaced = removeRows(sessions, body.session) + removeRows(players, body.session);
+    // Before anything is removed, while this session's old batch number is
+    // still on the sheet.
+    var batch = batchFor(badgeSheet, body.session);
+
+    var replaced = removeRows(sessions, body.session) + removeRows(players, body.session)
+      + removeRows(badgeSheet, body.session);
 
     var savedAt = body.savedAt || new Date().toISOString();
     var top = body.top || [];
@@ -159,11 +211,27 @@ function doPost(e) {
     });
     rows.forEach(function (r) { appendByHeader(players, r); });
 
+    // The Top 3 badges, exactly as the app minted them. The code and the
+    // fingerprint come from the app so a scanned badge can be matched against
+    // this row without recomputing anything the app did not do.
+    var badgesFrom = badgeSheet.getLastRow() + 1;
+    var badges = body.badges || [];
+    badges.forEach(function (b) {
+      appendByHeader(badgeSheet, {
+        'Saved at': savedAt, 'Session': body.session, 'Batch': batch,
+        'Rank': b.rank, 'Player': b.name, 'Wins': b.wins, 'Losses': b.losses,
+        'Day': b.day || body.date || '', 'Code': b.code, 'Badge id': b.id,
+        'Fingerprint': b.fingerprint || ''
+      });
+    });
+
     paintRows(sessions, sessionsFrom, colour);
     paintRows(players, playersFrom, colour);
+    paintRows(badgeSheet, badgesFrom, colour);
 
     return json({
       ok: true, session: body.session, playersSaved: rows.length,
+      badgesSaved: badges.length, batch: batch,
       replacedRows: replaced, sheet: ss.getName()
     });
   } catch (err) {

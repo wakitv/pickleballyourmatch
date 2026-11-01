@@ -1,4 +1,18 @@
-# PickleMatch v7.2 — Say Why the Top List Is Empty
+# PickleMatch v7.3 — One Way to Save, One Place for Badges
+
+## What changed in v7.3
+**Reset is the only thing that saves now, and badges live in the spreadsheet.**
+
+- **Save now is gone**, from the top bar and from Match settings. There was more than one way to write a session, which made it unclear which one was the real one. Pressing **Reset** sends the finished session and only then clears it — that is the whole of it. A failed save still refuses to clear anything.
+- **Badges are stored by the Apps Script, not in a JSON file.** The script keeps a third tab, **Badges**, with one row per Top 3 badge: its code, its batch number, the record it was minted from and a SHA-256 fingerprint of the badge's own payload. The app mints the badges and sends them with the session; the script assigns the batch number, because only the spreadsheet knows how many sessions came before.
+- **`toplist/toplist.json` has been deleted, and with it the publishing step.** The ⬆ Publish winners button is gone — it saved a file you then had to commit and push. Nothing to press, nothing to commit: finish a session, press Reset, and the badge is on the Top List. (This replaces the "Publish winners" section under v6.3 below, which is now history.)
+- **The Top List reads the Badges tab.** Codes and batch numbers come from the sheet rather than being derived on the page, and each badge's fingerprint is **recomputed, not believed** — edit a name or a record in the spreadsheet by hand and that row is called out under the list fingerprint.
+
+**What this changes about trust.** The record used to be a file in this repository, so changing it meant pushing a commit. The record is now the organiser's Google Sheet, so changing it means holding that sheet — and adding to it means holding the secret phrase as well. The Top List page says so.
+
+**You must redeploy the script.** `Code.gs` changed. In Apps Script: **Deploy → Manage deployments → Edit → Version: New version**. Until you do, the Badges tab is never created and the Top List derives codes the old way, which still works but gives no batch numbers of its own.
+
+Verified: the script was run in Node against a fake spreadsheet — two sessions numbered as batch #1 and #2, re-saving the first kept its number and replaced its rows instead of duplicating them, badge rows landed in the new tab, each session tinted its own colour, and a wrong secret was refused. The Top List was then served against a mock feed carrying the real badge codes: three batches rendered, all players listed, a scanned badge read *Official — Batch Winners #1*, and a deliberately doctored badge row was reported as no longer matching. The codes the app mints were checked against the codes the page expects — identical.
 
 ## What changed in v7.2
 The Top List said only that it could not read a local file when opened from disk, which hid the more likely reason: no spreadsheet is connected. It now names the real cause first — that `toplist/source.js` has no URL in it — and mentions the file problem underneath only when that applies too.

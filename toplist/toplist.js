@@ -1,8 +1,13 @@
 /*
   toplist.js — the public winners page.
 
-  Reads toplist.json (the published record), renders it, and — when a badge
-  QR sent you here — checks that badge against it.
+  Reads the spreadsheet through the Apps Script Web App in source.js, renders
+  it, and — when a badge QR sent you here — checks that badge against it.
+
+  The spreadsheet is the whole record. There is no committed winners file any
+  more: the script's Badges tab holds every minted badge with its code, its
+  batch number and a fingerprint of its own payload, and this page recomputes
+  that fingerprint rather than believing it.
 */
 (function () {
   const esc = v => String(v).replace(/[&<>"']/g, c =>
@@ -12,30 +17,45 @@
 
   let data = { entries: [] };
 
-  /* ---------- the published record ---------- */
+  /* ---------- the record, straight from the spreadsheet ---------- */
   const sheetUrl = () => (window.TOPLIST_SOURCE && window.TOPLIST_SOURCE.url || "").trim();
 
-  // The spreadsheet stores the facts; the badge code is derived from them with
-  // the same module that minted it, so nothing has to be stored twice and a
-  // scanned badge still matches.
-  function entriesFromSheet(sessions) {
+  // The Badges tab is authoritative for anyone on the podium: it holds the
+  // code the badge was minted with and the batch the script gave it. The
+  // Players tab fills in everyone else, and the games and score a badge does
+  // not carry.
+  function entriesFrom(sessions, badges) {
+    const badgeAt = new Map();
+    badges.forEach(b => badgeAt.set(`${b.session}|${b.rank}`, b));
+
     const entries = [];
     sessions.forEach((s, i) => {
-      const batch = i + 1;                       // the script returns oldest first
+      // The script numbers batches; a sheet saved before it did falls back to
+      // the order the sessions came back in, which is oldest first.
+      const batch = Number(s.batch) || i + 1;
       (s.winners || []).forEach(w => {
+        const rank = Number(w.rank);
+        const badge = badgeAt.get(`${s.session}|${rank}`);
         const e = {
-          batch, rank: Number(w.rank), name: String(w.name),
-          wins: Number(w.wins) || 0, losses: Number(w.losses) || 0,
-          games: Number(w.games) || 0, score: w.score == null ? null : Number(w.score),
-          day: String(s.day || ""), session: String(s.session || "")
+          batch, rank,
+          name: String(badge ? badge.name : w.name),
+          wins: Number(badge ? badge.wins : w.wins) || 0,
+          losses: Number(badge ? badge.losses : w.losses) || 0,
+          games: Number(w.games) || 0,
+          score: w.score == null ? null : Number(w.score),
+          day: String((badge && badge.day) || s.day || ""),
+          session: String(s.session || "")
         };
-        // Only the podium has a badge, so only the podium gets a code.
-        if (e.rank <= 3) {
-          e.code = BadgeCore.sign(e, e.day, e.session).code;
-          e.id = `${e.session}-${e.code}`;
-          e.hash = sha256(BadgeCore.canonical(e));
+        if (rank <= 3) {
+          // A badge row carries its own code; without one the code is derived
+          // the same way the app minted it, so an older sheet still matches.
+          e.code = badge && badge.code ? badge.code : BadgeCore.sign(e, e.day, e.session).code;
+          e.id = badge && badge.id ? badge.id : `${e.session}-${e.code}`;
+          e.fingerprint = badge ? String(badge.fingerprint || "") : "";
+          e.intact = !e.fingerprint || e.fingerprint === BadgeCore.fingerprint(e);
         } else {
-          e.id = `${e.session}-R${e.rank}`;
+          e.id = `${e.session}-R${rank}`;
+          e.intact = true;
         }
         entries.push(e);
       });
@@ -45,35 +65,18 @@
 
   async function loadList() {
     const url = sheetUrl();
-    if (url) {
-      try {
-        const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(),
-          { cache: "no-store", redirect: "follow" });
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || "the script reported a problem");
-        const entries = entriesFromSheet(json.sessions || []);
-        data = { entries, updated: (json.updated || "").slice(0, 10), live: true, sheet: json.sheet };
-        return data;
-      } catch (err) {
-        // Fall through to the committed file rather than showing nothing.
-        data = { entries: [], liveError: String(err.message || err) };
-      }
-    }
-    // Browsers refuse to fetch a local file from a local page, so opening this
-    // straight from disk can never read the committed list.
-    if (location.protocol === "file:") {
-      data = Object.assign({ entries: [], fromFile: true }, data.liveError ? { liveError: data.liveError } : {});
-      return data;
-    }
+    if (!url) { data = { entries: [], noSource: true }; return data; }
     try {
-      const res = await fetch("toplist.json?t=" + Date.now(), { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(),
+        { cache: "no-store", redirect: "follow" });
       const json = await res.json();
-      const base = json && Array.isArray(json.entries) ? json : { entries: [] };
-      data = Object.assign(base, data.liveError ? { liveError: data.liveError } : {});
+      if (!json.ok) throw new Error(json.error || "the script reported a problem");
+      data = {
+        entries: entriesFrom(json.sessions || [], json.badges || []),
+        updated: (json.updated || "").slice(0, 10), live: true, sheet: json.sheet
+      };
     } catch (err) {
-      data = Object.assign({ entries: [], error: String(err.message || err) },
-                           data.liveError ? { liveError: data.liveError } : {});
+      data = { entries: [], error: String(err.message || err) };
     }
     return data;
   }
@@ -120,53 +123,47 @@
     const summary = document.getElementById("listSummary");
     const fp = document.getElementById("fingerprint");
 
-    // No spreadsheet connected is the usual reason nothing shows, so say that
-    // first — being opened from a file is a separate problem on top of it.
-    if (!sheetUrl() && (data.fromFile || !data.entries.length)) {
+    // The spreadsheet is the only source now, so there are just three ways
+    // for this to come up empty: no URL, the script unreachable, or no
+    // session saved yet.
+    if (data.noSource) {
       body.className = "toplist-body empty";
       body.innerHTML = "No spreadsheet is connected yet, so there is nothing to show."
         + "<br><br>Open <code>toplist/source.js</code> and paste your Apps Script Web App URL "
-        + "between the quotes, then reload."
-        + (data.fromFile
-          ? "<br><br>This page is also open straight from a file, and a browser will not let a "
-            + "local page read a local file. Run <code>serve.bat</code> and use the address it "
-            + "prints, or publish to GitHub Pages."
-          : "");
+        + "between the quotes, then reload.";
       summary.textContent = "No spreadsheet connected";
-      fp.textContent = "—";
-      return;
-    }
-    if (data.fromFile) {
-      body.className = "toplist-body empty";
-      body.innerHTML = "This page was opened straight from a file, and a browser will not let a "
-        + "local page read a local file, so the winners list cannot be shown here.<br><br>"
-        + "Run <code>serve.bat</code> and open the address it prints, or publish to GitHub Pages.";
-      summary.textContent = "List unavailable from a file";
       fp.textContent = "—";
       return;
     }
     if (data.error) {
       body.className = "toplist-body empty";
-      body.textContent = "The winners list could not be loaded (" + data.error + ").";
+      body.innerHTML = "The winners could not be read from the spreadsheet ("
+        + esc(data.error) + ")."
+        + "<br><br>Check that the URL in <code>toplist/source.js</code> ends in <code>/exec</code> "
+        + "and that the deployment is set to <b>Anyone</b>."
+        + (location.protocol === "file:"
+          ? "<br><br>This page is also open straight from a file, which some browsers refuse to "
+            + "let make requests at all. Run <code>serve.bat</code> and use the address it prints."
+          : "");
       summary.textContent = "List unavailable";
       fp.textContent = "—";
       return;
     }
     if (!data.entries.length) {
       body.className = "toplist-body empty";
-      body.textContent = sheetUrl()
-        ? "No winners yet. Play a session in PickleMatch with the spreadsheet connected and the podium appears here."
-        : "No winners published yet. Finish a session in PickleMatch, open Top 3 Badges and press Publish winners.";
-      summary.textContent = "Nothing published yet";
+      body.textContent = "No winners yet. Finish a session in PickleMatch and press Reset — "
+        + "that is what writes it to the spreadsheet, and it appears here straight away.";
+      summary.textContent = "Nothing saved yet";
       fp.textContent = "—";
       return;
     }
 
-    const computed = fingerprintOf(data.entries);
-    fp.textContent = computed;
-    if (data.fingerprint && data.fingerprint !== computed) {
+    fp.textContent = fingerprintOf(data.entries);
+    const altered = data.entries.filter(e => e.intact === false).length;
+    if (altered) {
       fp.insertAdjacentHTML("afterend",
-        ' <b class="fp-mismatch">does not match the fingerprint stored in the file</b>');
+        ` <b class="fp-mismatch">— ${altered} badge row${altered === 1 ? "" : "s"} in the `
+        + `spreadsheet no longer match${altered === 1 ? "es" : ""} the badge it records</b>`);
     }
 
     // One batch per published session, newest first, podium in order inside.
@@ -178,9 +175,6 @@
       + `${groups.length} batch${groups.length === 1 ? "" : "es"}`
       + (data.live ? " · live from the spreadsheet" : "")
       + (data.updated ? ` · updated ${esc(data.updated)}` : "");
-    if (data.liveError) {
-      summary.textContent += " · could not reach the spreadsheet, showing the published file";
-    }
 
     body.className = "toplist-body";
     body.innerHTML = groups.map(g => `
@@ -245,13 +239,14 @@
 
     if (!listed) {
       box.className = "scan-result warn";
-      const why = data.fromFile || data.error
+      const unreadable = !!(data.error || data.noSource);
+      const why = unreadable
         ? "The badge itself is intact, but the winners list could not be read here, so it cannot be "
-          + "checked against the published record."
-        : "The badge itself is intact, but this result has not been published to the winners "
-          + "list below, so it cannot be confirmed as official yet.";
-      box.innerHTML = `<div class="scan-head">⚠ ${data.fromFile || data.error
-        ? "Badge is intact, list unavailable" : "Genuine badge, not on the published list"}</div>${card}
+          + "checked against the record."
+        : "The badge itself is intact, but this session has not been saved to the spreadsheet yet, "
+          + "so it cannot be confirmed as official. Pressing Reset in PickleMatch is what saves it.";
+      box.innerHTML = `<div class="scan-head">⚠ ${unreadable
+        ? "Badge is intact, list unavailable" : "Genuine badge, not on the list yet"}</div>${card}
         <p>${why}</p>`;
       return;
     }
@@ -263,12 +258,12 @@
         <p>A badge with this code is on the list, but its details differ from the ones above.</p>`;
       return;
     }
-    const hashOk = !listed.hash || listed.hash === sha256(BadgeCore.canonical(listed));
+    const hashOk = listed.intact !== false;
     const group = groupIntoBatches(data.entries).find(g => g.rows.some(r => r.id === id));
     const batchNo = group ? group.batch : null;
     box.className = "scan-result good";
     box.innerHTML = `<div class="scan-head">✓ Official — Batch Winners #${batchNo}</div>${card}
-      <p>This badge matches the published record${hashOk ? "" : ", though that record's own fingerprint does not match"}.
+      <p>This badge matches the spreadsheet${hashOk ? "" : ", though that row's own fingerprint does not match, so it has been edited"}.
       <a href="#batch-${batchNo}">See batch #${batchNo} below.</a></p>`;
     const row = document.getElementById("row-" + id);
     if (row) row.classList.add("highlight");

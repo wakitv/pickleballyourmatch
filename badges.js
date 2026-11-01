@@ -352,69 +352,26 @@
     }
   }
 
-  /* ---------- publishing to the Top List ---------- */
-  // Merges this session's podium into the published record and hands back a
-  // toplist.json to commit. The app cannot write to the repository itself, and
-  // that is the point: the list only changes when someone pushes.
-  async function publishWinners() {
-    const top = badgeData();
-    if (!top.length) return toast("No finished matches yet, so there are no winners to publish.");
-
-    let current = { app: "PickleMatch", format: 1, entries: [] };
-    try {
-      const res = await fetch(toplistUrl() + "toplist.json?t=" + Date.now(), { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && Array.isArray(json.entries)) current = json;
-      }
-    } catch { /* first publish, or opened as a file: start from an empty list */ }
-
-    const byId = new Map(current.entries.map(e => [e.id, e]));
-
-    // Each published session becomes a numbered batch. Publishing the same
-    // session twice updates that batch rather than opening a new one.
-    const batchOf = new Map();
-    let highest = 0;
-    current.entries.forEach(e => {
-      const n = Number(e.batch) || 0;
-      if (n) { batchOf.set(e.session, n); highest = Math.max(highest, n); }
-    });
-    const sid = top[0].sid;
-    const batch = batchOf.get(sid) || highest + 1;
-
-    let added = 0;
-    top.forEach(b => {
+  /* ---------- what the spreadsheet keeps ---------- */
+  // One row per badge, handed to sheets.js when the session is saved. The
+  // batch number is deliberately not here: the script assigns it, because
+  // only the spreadsheet knows how many sessions came before this one.
+  //
+  // The fingerprint is a SHA-256 of the badge's own payload, so a row edited
+  // by hand in the sheet no longer matches the badge it claims to record.
+  function badgeRecords() {
+    return badgeData().map(b => {
       const info = BC.parse(b.signed);
-      const id = BC.entryId(info);
-      const entry = {
-        id, batch, rank: info.rank, name: info.name, wins: info.wins, losses: info.losses,
-        day: info.day, session: info.session, code: info.code
+      return {
+        rank: info.rank, name: info.name, wins: info.wins, losses: info.losses,
+        day: info.day, session: info.session, code: info.code,
+        id: BC.entryId(info), fingerprint: sha256(b.signed)
       };
-      entry.hash = sha256(BC.canonical(entry));
-      if (!byId.has(id)) added++;
-      byId.set(id, entry);
     });
-
-    const entries = [...byId.values()].sort((a, b) =>
-      (Number(b.batch) || 0) - (Number(a.batch) || 0) || a.rank - b.rank);
-    const out = {
-      app: "PickleMatch", format: 1,
-      updated: new Date().toISOString().slice(0, 10),
-      fingerprint: sha256(entries.map(e => sha256(BC.canonical(e))).join("\n")).slice(0, 32),
-      entries
-    };
-
-    const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "toplist.json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast(`toplist.json saved — batch #${batch}, ${added} new winner${added === 1 ? "" : "s"}, `
-      + `${entries.length} in total. Replace toplist/toplist.json with it and push to publish.`);
   }
 
   /* ---------- wiring ---------- */
   document.getElementById("badgeBtn").addEventListener("click", openBadges);
-  document.getElementById("badgePublishBtn").addEventListener("click", publishWinners);
+
+  window.PickleBadges = { records: badgeRecords };
 })();

@@ -3,12 +3,15 @@
 
   The organiser deploys the Apps Script in sheets/Code.gs as a Web App and
   pastes its URL and secret phrase into Match settings. A session is written
-  once, when it ends: pressing Reset sends the finished session and only then
-  clears it. That keeps one row per session with its final figures, and no
-  session is ever written twice.
+  once, when it ends: pressing Reset is the only thing that saves. It sends
+  the finished session and only then clears it, so there is one row per
+  session with its final figures and no session is ever written twice.
 
   Because Reset is what saves, it will not clear a session the save could not
   deliver -- losing a session to a typo in the URL would be unrecoverable.
+
+  What goes up is the standings and the Top 3 badges together, so the public
+  Top List has everything it needs from the sheet alone.
 
   This is the only place a session is kept outside the browser -- there is no
   file export any more. It is a record, not a restore point: nothing reads the
@@ -30,8 +33,8 @@
   const el = id => document.getElementById(id);
   const ui = {
     url: el("sheetUrl"), token: el("sheetToken"),
-    save: el("sheetSaveBtn"), test: el("sheetTestBtn"), forget: el("sheetForgetBtn"),
-    status: el("sheetStatus"), quick: el("sheetQuickBtn")
+    test: el("sheetTestBtn"), forget: el("sheetForgetBtn"),
+    status: el("sheetStatus")
   };
   if (!ui.url) return;
 
@@ -61,11 +64,8 @@
   function render() {
     ui.url.value = cfg.url;
     ui.token.value = cfg.token;
-    const ready = configured();
-    ui.save.disabled = !ready;
-    ui.test.disabled = !ready;
+    ui.test.disabled = !configured();
     ui.forget.disabled = !cfg.url && !cfg.token;
-    if (ui.quick) ui.quick.classList.toggle("hidden", !ready);
     if (!ui.status.textContent || ui.status.dataset.idle === "1") {
       ui.status.dataset.idle = "1";
       if (!cfg.url) say("Not connected. Paste your Web App URL and secret phrase to save sessions to a sheet.");
@@ -80,6 +80,15 @@
   }
 
   /* ---------- what gets sent ---------- */
+  // The Top 3 badges travel with the session. They are minted here, not in
+  // the sheet, because only the app has the module that makes a badge code --
+  // the script just keeps the rows.
+  function badgeRows() {
+    try {
+      return window.PickleBadges ? window.PickleBadges.records() : [];
+    } catch { return []; }         // a badge failing to mint must not lose the session
+  }
+
   function payload(extra) {
     const summary = buildSessionSummary();
     const standings = summary.standings || [];
@@ -95,7 +104,8 @@
       courts: summary.courts,
       gamesPerPlayer: summary.gamesPerPlayer,
       top: standings.filter(p => p.rank && p.rank <= 3),
-      players: standings
+      players: standings,
+      badges: badgeRows()
     }, extra || {});
   }
 
@@ -121,31 +131,6 @@
       else say(out.error || "The script refused the request.", "bad");
     } catch (err) {
       say(failure(err), "bad");
-    }
-  }
-
-  async function saveSession(silent) {
-    if (!configured()) return;
-    const completed = state.rounds.filter(r => r.status === "completed").length;
-    if (!completed) {
-      say("Nothing to save yet — finish at least one match first.", "warn");
-      ui.status.dataset.idle = "";
-      return;
-    }
-    say("Saving…");
-    ui.status.dataset.idle = "";
-    try {
-      const out = await post(payload());
-      if (!out.ok) return say(out.error || "The script refused the save.", "bad");
-      state.savedToSheet = state.sessionId;
-      cfg.lastSaved = new Date().toLocaleString();
-      store();
-      const replaced = out.replacedRows ? ` (replacing ${out.replacedRows} earlier row${out.replacedRows === 1 ? "" : "s"})` : "";
-      say(`Saved session ${out.session}: ${out.playersSaved} player rows${replaced}.`, "ok");
-      if (!silent) toast(`Session saved to "${out.sheet}".`);
-    } catch (err) {
-      say(failure(err), "bad");
-      if (!silent) toast("Could not save to the spreadsheet. See Match settings for what went wrong.");
     }
   }
 
@@ -177,8 +162,11 @@
         state.savedToSheet = state.sessionId;
         cfg.lastSaved = new Date().toLocaleString();
         store();
-        say(`Session ${out.session} saved with ${out.playersSaved} players.`, "ok");
-        toast(`Session saved to "${out.sheet}".`);
+        const badges = out.badgesSaved
+          ? ` and ${out.badgesSaved} badge${out.badgesSaved === 1 ? "" : "s"} as batch #${out.batch}`
+          : "";
+        say(`Session ${out.session} saved with ${out.playersSaved} players${badges}.`, "ok");
+        toast(`Session saved to "${out.sheet}"${out.batch ? ` as batch #${out.batch}` : ""}.`);
         return true;
       }
       return dropAnyway(out.error || "The script refused the save.");
@@ -205,14 +193,12 @@
     store(); ui.status.dataset.idle = "1"; render();
   });
   ui.test.addEventListener("click", testConnection);
-  ui.save.addEventListener("click", () => saveSession(false));
   ui.forget.addEventListener("click", () => {
     if (!confirm("Forget the spreadsheet URL and secret phrase on this device?")) return;
     cfg = { url: "", token: "", lastSaved: "" };
     store(); ui.status.dataset.idle = "1"; render();
     toast("Spreadsheet connection forgotten on this device.");
   });
-  if (ui.quick) ui.quick.addEventListener("click", () => saveSession(false));
 
   window.PickleSheet = { saveBeforeReset };
   window.sheetLinked = configured;
