@@ -2,11 +2,13 @@
   sheets.js — save a session to a Google Sheet.
 
   The organiser deploys the Apps Script in sheets/Code.gs as a Web App and
-  pastes its URL and secret phrase into Match settings. From then on the
-  session saves itself: any change to players or results schedules a save a
-  few seconds later, so the spreadsheet keeps up without anyone pressing
-  anything. Re-saving replaces the session's earlier rows, so a session stays
-  one row however many times it is sent.
+  pastes its URL and secret phrase into Match settings. A session is written
+  once, when it ends: pressing Reset sends the finished session and only then
+  clears it. That keeps one row per session with its final figures, and no
+  session is ever written twice.
+
+  Because Reset is what saves, it will not clear a session the save could not
+  deliver -- losing a session to a typo in the URL would be unrecoverable.
 
   This is the only place a session is kept outside the browser -- there is no
   file export any more. It is a record, not a restore point: nothing reads the
@@ -70,9 +72,10 @@
       else if (!looksLikeUrl()) say("That does not look like a URL.", "warn");
       else if (!cfg.token) say("Add the secret phrase you set in the script.", "warn");
       else if (!isAppsScript()) say("Ready, though that is not a script.google.com address — check it is the Web App URL.", "warn");
+      else if (state.savedToSheet === state.sessionId) say("This session has been saved. Press Reset to start the next one.", "ok");
       else say(cfg.lastSaved
-        ? `Connected — saving automatically. Last saved ${cfg.lastSaved}.`
-        : "Connected — this session will save itself as matches are played.", "ok");
+        ? `Connected — this session saves when you press Reset. Last saved ${cfg.lastSaved}.`
+        : "Connected — this session will be saved when you press Reset.", "ok");
     }
   }
 
@@ -123,8 +126,6 @@
 
   async function saveSession(silent) {
     if (!configured()) return;
-    clearTimeout(timer);
-    lastSent = "";                              // an explicit press always sends
     const completed = state.rounds.filter(r => r.status === "completed").length;
     if (!completed) {
       say("Nothing to save yet — finish at least one match first.", "warn");
@@ -136,9 +137,9 @@
     try {
       const out = await post(payload());
       if (!out.ok) return say(out.error || "The script refused the save.", "bad");
-      cfg.lastSaved = new Date().toLocaleTimeString();
+      state.savedToSheet = state.sessionId;
+      cfg.lastSaved = new Date().toLocaleString();
       store();
-      try { lastSent = fingerprint(); } catch { /* ignore */ }
       const replaced = out.replacedRows ? ` (replacing ${out.replacedRows} earlier row${out.replacedRows === 1 ? "" : "s"})` : "";
       say(`Saved session ${out.session}: ${out.playersSaved} player rows${replaced}.`, "ok");
       if (!silent) toast(`Session saved to "${out.sheet}".`);
@@ -159,58 +160,40 @@
     return msg;
   }
 
-  /* ---------- automatic saving ---------- */
-  // Every state change fires picklematch:changed, which is far more often
-  // than is worth sending. Wait for the activity to settle, then send once.
-  const SETTLE_MS = 4000;
-  let timer = null, lastSent = "", inFlight = false, queued = false;
+  /* ---------- saving at the end of a session ---------- */
+  // Reset calls this before it clears anything. Returns true when it is safe
+  // to go ahead: either the session was saved, or there was nothing to save,
+  // or the organiser chose to drop it anyway.
+  async function saveBeforeReset() {
+    if (!configured()) return true;                       // no sheet connected
+    if (!state.rounds.some(r => r.status === "completed")) return true;
+    if (state.savedToSheet === state.sessionId) return true;   // already written
 
-  function fingerprint() {
-    // Only the parts that end up in the spreadsheet.
-    const p = payload();
-    return JSON.stringify([p.session, p.playerCount, p.matchesPlayed, p.players]);
-  }
-
-  async function autoSave() {
-    if (!configured() || inFlight) { queued = inFlight; return; }
-    if (!state.rounds.some(r => r.status === "completed")) return;
-    let print;
-    try {
-      print = fingerprint();
-    } catch (err) {
-      say("Could not read the session to save it: " + (err && err.message ? err.message : err), "bad");
-      ui.status.dataset.idle = "";
-      return;
-    }
-    if (print === lastSent) return;            // nothing new to send
-
-    inFlight = true;
-    say("Saving…");
+    say("Saving this session before it is cleared…");
     ui.status.dataset.idle = "";
     try {
       const out = await post(payload());
       if (out.ok) {
-        lastSent = print;
-        cfg.lastSaved = new Date().toLocaleTimeString();
+        state.savedToSheet = state.sessionId;
+        cfg.lastSaved = new Date().toLocaleString();
         store();
-        say(`Saved automatically at ${cfg.lastSaved} — session ${out.session}, ${out.playersSaved} players.`, "ok");
-      } else {
-        say((out.error || "The script refused the save.") + " Automatic saving is paused until this is fixed.", "bad");
+        say(`Session ${out.session} saved with ${out.playersSaved} players.`, "ok");
+        toast(`Session saved to "${out.sheet}".`);
+        return true;
       }
+      return dropAnyway(out.error || "The script refused the save.");
     } catch (err) {
-      say(failure(err), "bad");
-    } finally {
-      inFlight = false;
-      if (queued) { queued = false; schedule(); }
+      return dropAnyway(failure(err));
     }
   }
 
-  function schedule() {
-    if (!configured()) return;
-    clearTimeout(timer);
-    timer = setTimeout(autoSave, SETTLE_MS);
+  // A failed save must not take the session with it, so this asks first.
+  function dropAnyway(reason) {
+    say(reason, "bad");
+    ui.status.dataset.idle = "";
+    return confirm("This session could not be saved to the spreadsheet.\n\n" + reason
+      + "\n\nReset anyway and lose it? Choose Cancel to keep playing and try again.");
   }
-  document.addEventListener("picklematch:changed", schedule);
 
   /* ---------- wiring ---------- */
   ui.url.addEventListener("change", () => {
@@ -222,7 +205,6 @@
     store(); ui.status.dataset.idle = "1"; render();
   });
   ui.test.addEventListener("click", testConnection);
-  [ui.url, ui.token].forEach(input => input.addEventListener("change", schedule));
   ui.save.addEventListener("click", () => saveSession(false));
   ui.forget.addEventListener("click", () => {
     if (!confirm("Forget the spreadsheet URL and secret phrase on this device?")) return;
@@ -232,5 +214,7 @@
   });
   if (ui.quick) ui.quick.addEventListener("click", () => saveSession(false));
 
+  window.PickleSheet = { saveBeforeReset };
+  window.sheetLinked = configured;
   render();
 })();

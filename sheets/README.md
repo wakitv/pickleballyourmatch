@@ -52,22 +52,25 @@ again on each device you use.
 
 ## Saving
 
-Once the URL and phrase are in, **saving is automatic**. Any change to the players or
-the results schedules a save a few seconds later, so the sheet keeps up on its own.
-**Save now** (in Match settings, or the top bar) forces one immediately if you want to
-be sure before packing up.
+**A session is written once, when it ends.** Nothing is sent while you are playing;
+pressing **Reset** saves the finished session and only then clears it, so the sheet
+gets one row per session with its final figures and never writes the same session
+twice. **Save now** is there if you want to send a session without resetting.
 
-**Reset starts a new session**, which saves as its own separate rows. You get:
+**If the save fails, Reset does not clear anything.** You are told what went wrong and
+asked whether to drop the session anyway — because with no file export, the sheet is
+the only copy. Fix the problem and press Reset again.
+
+Each session's rows are tinted their own colour in both tabs, so you can see at a
+glance where one session ends and the next begins. You get:
 
 - **Sessions** — one row per session: when it was saved, the session id, the date,
   how many players and matches, courts, games per player, and the top three names.
 - **Players** — one row per player: rank, name, score, games, wins, losses, point
   difference, rating and starting rating.
 
-Saving the same session again **replaces its earlier rows** rather than duplicating
-them. A session keeps one id from the moment it starts until you press Reset, so
-however many times it saves itself along the way, it stays a single row that fills in
-as the session goes on.
+Should a session ever be sent twice, the script **replaces its earlier rows** rather
+than duplicating them, so a session can only ever be one row.
 
 **The sheet is a record, not a backup you can load.** Nothing reads it back into the
 app: Reset still clears the session from the browser for good, and there is no way to
@@ -75,8 +78,10 @@ reopen an old session from the spreadsheet. If that matters, say so and it can b
 
 ## Showing the winners on the Top List
 
-The Top List page can read the winners straight from this sheet, so past champions
-appear there as soon as a session saves — no publishing, no commit.
+The Top List page can read straight from this sheet, so a finished session appears
+there as soon as it is saved — no publishing, no commit. It lists **everyone who
+played**, with the top three carrying their medal and badge code and the rest below
+them, and gives every batch its own colour.
 
 Open [`toplist/source.js`](../toplist/source.js) and paste the same Web App URL:
 

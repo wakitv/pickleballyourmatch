@@ -26,11 +26,17 @@
         const e = {
           batch, rank: Number(w.rank), name: String(w.name),
           wins: Number(w.wins) || 0, losses: Number(w.losses) || 0,
+          games: Number(w.games) || 0, score: w.score == null ? null : Number(w.score),
           day: String(s.day || ""), session: String(s.session || "")
         };
-        e.code = BadgeCore.sign(e, e.day, e.session).code;
-        e.id = `${e.session}-${e.code}`;
-        e.hash = sha256(BadgeCore.canonical(e));
+        // Only the podium has a badge, so only the podium gets a code.
+        if (e.rank <= 3) {
+          e.code = BadgeCore.sign(e, e.day, e.session).code;
+          e.id = `${e.session}-${e.code}`;
+          e.hash = sha256(BadgeCore.canonical(e));
+        } else {
+          e.id = `${e.session}-R${e.rank}`;
+        }
         entries.push(e);
       });
     });
@@ -100,6 +106,15 @@
       .sort((a, b) => b.batch - a.batch);
   }
 
+  // A colour per batch, taken from its session id so it never moves between
+  // reloads, and spread far enough apart to be told apart at a glance.
+  function batchHue(group) {
+    const key = String(group.session || group.batch);
+    let sum = 0;
+    for (let i = 0; i < key.length; i++) sum = (sum * 31 + key.charCodeAt(i)) % 100000;
+    return (sum * 47) % 360;
+  }
+
   function renderList() {
     const body = document.getElementById("listBody");
     const summary = document.getElementById("listSummary");
@@ -141,7 +156,9 @@
     // One batch per published session, newest first, podium in order inside.
     const groups = groupIntoBatches(data.entries);
 
-    summary.textContent = `${data.entries.length} winner${data.entries.length === 1 ? "" : "s"} across `
+    const podium = data.entries.filter(e => e.rank <= 3).length;
+    summary.textContent = `${podium} winner${podium === 1 ? "" : "s"} and `
+      + `${data.entries.length - podium} other player${data.entries.length - podium === 1 ? "" : "s"} across `
       + `${groups.length} batch${groups.length === 1 ? "" : "es"}`
       + (data.live ? " · live from the spreadsheet" : "")
       + (data.updated ? ` · updated ${esc(data.updated)}` : "");
@@ -151,21 +168,28 @@
 
     body.className = "toplist-body";
     body.innerHTML = groups.map(g => `
-        <div class="toplist-batch" id="batch-${g.batch}">
+        <div class="toplist-batch" id="batch-${g.batch}" style="--batch-hue:${batchHue(g)}">
           <div class="toplist-batch-head">
             <b>Batch Winners #${g.batch}</b>
             <span>${esc(g.day)} · session ${esc(g.session)}</span>
           </div>
-          ${g.rows.map(e => `
-            <div class="toplist-row" id="row-${esc(e.id)}">
-              <span class="toplist-medal">${MEDAL[e.rank - 1] || ""}</span>
-              <span class="toplist-place">TOP ${e.rank}</span>
+          ${g.rows.map(e => {
+            const podium = e.rank <= 3;
+            const detail = [WORD[e.rank - 1], `${e.wins}W / ${e.losses}L`]
+              .concat(e.games ? [`${e.games} games`] : [])
+              .concat(e.score == null ? [] : [`score ${e.score}`])
+              .filter(Boolean).join(" · ");
+            return `
+            <div class="toplist-row${podium ? "" : " plain"}" id="row-${esc(e.id)}">
+              <span class="toplist-medal">${podium ? MEDAL[e.rank - 1] : ""}</span>
+              <span class="toplist-place">${podium ? "TOP " + e.rank : "#" + e.rank}</span>
               <div class="toplist-who">
                 <b>${esc(e.name)}</b>
-                <em>${esc(WORD[e.rank - 1] || "")} · ${e.wins}W / ${e.losses}L</em>
+                <em>${esc(detail)}</em>
               </div>
-              <code class="toplist-code">${esc(e.code)}</code>
-            </div>`).join("")}
+              ${podium ? `<code class="toplist-code">${esc(e.code)}</code>` : ""}
+            </div>`;
+          }).join("")}
         </div>`).join("");
   }
 

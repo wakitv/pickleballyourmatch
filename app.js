@@ -558,8 +558,18 @@ function renderFixedPairs() {
   }
 }
 
-document.getElementById("resetBtn").onclick = () => {
-  if (!confirm("Reset all players, rounds and results?")) return;
+document.getElementById("resetBtn").onclick = async () => {
+  const played = state.rounds.some(r => r.status === "completed");
+  const linked = !!(window.PickleSheet && window.sheetLinked && window.sheetLinked());
+  if (!confirm("Reset all players, rounds and results?"
+    + (played && linked ? "\n\nThis session will be saved to the spreadsheet first." : ""))) return;
+
+  // The spreadsheet is the only copy of a session, so it is written before
+  // anything is cleared — and if that write fails, nothing is cleared.
+  if (window.PickleSheet) {
+    const safe = await window.PickleSheet.saveBeforeReset();
+    if (!safe) return;
+  }
   state = defaultState();
   saveState();
   toast("PickleMatch has been reset.");
@@ -1860,7 +1870,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "7.0";
+const APP_VERSION = "7.1";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;

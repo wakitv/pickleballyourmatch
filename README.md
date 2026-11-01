@@ -1,4 +1,13 @@
-# PickleMatch v7.0 — The Top List Reads the Spreadsheet
+# PickleMatch v7.1 — One Save Per Session, Colour-Coded
+
+## What changed in v7.1
+- **A session is written once, when it ends.** Nothing is sent while you play; **Reset** saves the finished session and only then clears it. No session is written twice, and the row holds its final figures rather than whatever was true after the first match.
+- **A failed save never costs you the session.** If the sheet cannot be reached, Reset does not clear anything — it tells you why and asks whether to drop the session anyway. With no file export, the sheet is the only copy, so this had to be the careful path.
+- **Every session's rows are tinted** in both spreadsheet tabs, the colour taken from the session id so it is stable, making it obvious where one session ends and the next starts.
+- **The Top List shows everyone who played**, not just the podium. The top three keep their medal, rank word and badge code; everyone below is listed plainly underneath with their record, games and score.
+- **Each batch has its own colour** on the Top List too — a coloured edge and heading, derived from the session id so it never shifts between reloads.
+
+Verified against a stub sheet: nothing sent during play, the session written on Reset, a second session landing separately, and the Top List showing both batches in distinct colours with all players. The failed-save path was tested by pointing at a dead endpoint — the prompt appeared, declining it left the sessionintact, and the error named the likely cause. The script was checked in Node for the all-players feed and for per-session colouring.
 
 ## What changed in v7.0
 The spreadsheet is now the one place session data lives, for the public Top List as well as the app.
@@ -196,7 +205,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=7.0`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=7.1`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero

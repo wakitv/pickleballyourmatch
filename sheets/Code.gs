@@ -28,6 +28,27 @@
 // is what stops a stranger who finds the URL from writing to your sheet.
 var SECRET = 'change-me';
 
+// One colour per session, so a glance at the sheet shows where a session
+// starts and ends. Picked from the session id, so the same session always
+// gets the same colour.
+var ROW_COLOURS = ['#e8f0fe', '#e6f4ea', '#fef7e0', '#fce8e6', '#f3e8fd',
+                   '#e4f7fb', '#fff0e6', '#eef3e2', '#fdeaf4', '#eaeef6'];
+
+function colourFor(session) {
+  var sum = 0;
+  var text = String(session);
+  for (var i = 0; i < text.length; i++) sum = (sum * 31 + text.charCodeAt(i)) % 100000;
+  return ROW_COLOURS[sum % ROW_COLOURS.length];
+}
+
+// Paints the rows that belong to one session, from `from` to the last row.
+function paintRows(sheet, from, colour) {
+  var last = sheet.getLastRow();
+  if (last < from) return;
+  sheet.getRange(from, 1, last - from + 1, Math.max(1, sheet.getLastColumn()))
+    .setBackground(colour);
+}
+
 var SESSION_HEADERS = ['Saved at', 'Session', 'Date', 'Started at', 'Players',
   'Matches played', 'Courts', 'Games per player', 'Top 1', 'Top 2', 'Top 3'];
 var PLAYER_HEADERS = ['Saved at', 'Session', 'Date', 'Rank', 'Player', 'Score',
@@ -55,7 +76,7 @@ function doGet() {
     var bySession = {};
     readRows(players).forEach(function (row) {
       var rank = Number(row['Rank']);
-      if (!(rank >= 1 && rank <= 3)) return;         // the podium only
+      if (!(rank >= 1)) return;                      // skip anyone who did not play
       var id = String(row['Session']);
       if (!bySession[id]) {
         bySession[id] = {
@@ -70,7 +91,9 @@ function doGet() {
         rank: rank,
         name: String(row['Player']),
         wins: Number(row['Wins']) || 0,
-        losses: Number(row['Losses']) || 0
+        losses: Number(row['Losses']) || 0,
+        games: Number(row['Games']) || 0,
+        score: row['Score'] === '' ? null : Number(row['Score'])
       });
     });
 
@@ -114,6 +137,9 @@ function doPost(e) {
 
     var savedAt = body.savedAt || new Date().toISOString();
     var top = body.top || [];
+    var colour = colourFor(body.session);
+    var sessionsFrom = sessions.getLastRow() + 1;
+    var playersFrom = players.getLastRow() + 1;
     appendByHeader(sessions, {
       'Saved at': savedAt, 'Session': body.session, 'Date': body.date || '',
       'Started at': body.startedAt || '', 'Players': body.playerCount || 0,
@@ -132,6 +158,9 @@ function doPost(e) {
       };
     });
     rows.forEach(function (r) { appendByHeader(players, r); });
+
+    paintRows(sessions, sessionsFrom, colour);
+    paintRows(players, playersFrom, colour);
 
     return json({
       ok: true, session: body.session, playersSaved: rows.length,
