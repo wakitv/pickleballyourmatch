@@ -28,12 +28,7 @@
   /* ---------- session identity ---------- */
   // A short fingerprint of this session's finished results, so two different
   // sessions never mint the same badge.
-  function sessionId() {
-    const done = state.rounds.filter(r => r.status === "completed");
-    const seed = done.map(r => `${r.id}:${r.scoreA}-${r.scoreB}`).join(",")
-      + "#" + activePlayers().map(p => p.name).sort().join(",");
-    return sha256(seed).slice(0, 5).toUpperCase();
-  }
+  const sessionId = () => BC.sessionId(state.rounds, activePlayers().map(p => p.name));
 
   function topThree() {
     const diff = pointDiffByPlayer();

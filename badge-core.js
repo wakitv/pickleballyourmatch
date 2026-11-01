@@ -63,8 +63,17 @@
   const canonical = e =>
     [e.id, e.batch, e.rank, e.name, e.wins, e.losses, e.day, e.session, e.code].join("|");
 
+  // A short fingerprint of this session's finished results. Shared so a badge
+  // and a spreadsheet row always name the same session.
+  function sessionId(rounds, names) {
+    const done = rounds.filter(r => r.status === "completed");
+    const seed = done.map(r => `${r.id}:${r.scoreA}-${r.scoreB}`).join(",")
+      + "#" + [...names].sort().join(",");
+    return sha256(seed).slice(0, 5).toUpperCase();
+  }
+
   window.BadgeCore = {
     PREFIX, checkOf, codeLabel, b64uEnc, b64uDec,
-    shortDay, longDay, body, sign, parse, entryId, canonical
+    shortDay, longDay, body, sign, parse, entryId, canonical, sessionId
   };
 })();

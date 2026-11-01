@@ -1,4 +1,19 @@
-# PickleMatch v6.7 — Mini Game Removed
+# PickleMatch v6.8 — Save Sessions to a Google Sheet
+
+## What changed in v6.8
+PickleMatch can now append each session's standings to a Google Sheet you own. Full setup is in **[sheets/README.md](sheets/README.md)**; the short version is: paste `sheets/Code.gs` into your sheet's Apps Script, deploy it as a Web App, and give PickleMatch the URL and a secret phrase.
+
+- **Match settings → Google Sheet** holds the URL and phrase, with **Test connection**, **Save this session** and **Forget**. A **📊 Save to Sheet** button appears in the top bar once a sheet is connected.
+- Two tabs are written, created with headings on first use: **Sessions** (one row per save — date, counts, courts, and the top three names) and **Players** (one row per player — rank, score, games, W/L, point difference and ratings).
+- **Saving the same session again replaces its earlier rows** instead of duplicating them, so you can save as you go.
+- The URL and phrase live in that browser's local storage only. They are never committed and never sent anywhere but Google. Anyone holding both can append to the sheet, so they are treated as a password — hence **Forget**, and the note to set them up per device.
+
+Two details that make this work from a static site, both easy to get wrong:
+
+- The request is sent as `text/plain`. A JSON content type makes the browser send a CORS preflight, which Apps Script does not answer, and the save fails before it leaves the browser. The script parses the body as JSON regardless.
+- The deployment must be **Execute as: Me** and **Who has access: Anyone** — the first lets the script write to your sheet, the second lets a browser reach it. "Anyone" is why the secret phrase exists.
+
+Tested by running `Code.gs` against stubbed Google services (correct rows, wrong-secret rejection, and re-saving a session replacing its 4 old rows rather than duplicating), and the browser half against a stub endpoint: real save, wrong phrase, unreachable endpoint and an empty session all report something useful.
 
 ## What changed in v6.7
 The Mini game is gone: the **Pickle Arena** betting game and the **simulated match animation** have both been removed, along with their code and files.
@@ -152,7 +167,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.7`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.8`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero
