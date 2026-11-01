@@ -1,4 +1,11 @@
-# PickleMatch v7.5 — The Certificate Looks Like One
+# PickleMatch v7.6 — Generate Matches Where the Matches Are
+
+## What changed in v7.6
+**Generate Matches moved out of the hero and into the Active Matches heading**, beside the courts it fills. It was sitting at the top of the page, a panel away from the thing it acts on, and the empty state right underneath it had to say *"press Generate Matches"* to point back up at it.
+
+It keeps the pressed-key depth it had in the hero, so it still reads as the main action on the page. On a phone it goes full width under the heading rather than being squeezed beside it.
+
+Checked at desktop and 375px: the button generates a match from the new position, and neither width overflows.
 
 ## What changed in v7.5
 The certificate page now carries the same pickleball artwork the printed badges use, so a scanned badge and a printed one look like the same thing.

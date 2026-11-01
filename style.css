@@ -66,9 +66,6 @@ h1,h2,h3,p{margin:0}
 .hero-status-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 .live-chip,.hero-court-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(0,0,0,.28);border:1px solid rgba(200,245,66,.22);color:#e4f5ea}
 .live-chip i{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 4px rgba(200,245,66,.22)}
-.hero .btn{flex:0 0 auto;white-space:nowrap;box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 40px rgba(200,245,66,.16)}
-.hero .btn:hover{transform:translateY(-2px)}
-.hero .btn:active{transform:translateY(5px);box-shadow:0 3px 0 rgba(0,0,0,.35)}
 
 /* ---------- Google Sheet ---------- */
 .sheet-intro{margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.55}
@@ -284,6 +281,12 @@ h1,h2,h3,p{margin:0}
 .panel-title .icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:19px;background:var(--panel-3)}
 .panel-title h3{font-family:var(--display);font-size:20px;letter-spacing:-.005em}
 .panel-title small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+/* Generate Matches sits in the Active Matches heading, beside the courts it
+   fills. It keeps the pressed-key depth it had in the hero. */
+.btn-generate{flex:0 0 auto;margin-left:auto;white-space:nowrap;
+  box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 40px rgba(200,245,66,.16)}
+.btn-generate:hover{transform:translateY(-2px)}
+.btn-generate:active{transform:translateY(5px);box-shadow:0 3px 0 rgba(0,0,0,.35)}
 .pill{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700}
 .pill.green{background:rgba(52,209,122,.15);color:var(--green)}
 .empty,.section-empty{padding:26px 16px;text-align:center;color:var(--dim);border:1px dashed var(--line-2);border-radius:14px;font-size:14px}
@@ -585,6 +588,9 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .lb-note{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);font-size:13px}
 .lb-note b{color:var(--lime)}
 @media(max-width:560px){
+  /* Full width under the heading, rather than squeezed beside it. */
+  #matchesPanel .panel-title{flex-wrap:wrap;row-gap:12px}
+  #matchesPanel .btn-generate{width:100%;margin-left:0}
   /* Side by side there is no room for both a name and a QR, so the rank and
      the QR share the top line and the player takes the width below them. */
   .toplist-row{flex-wrap:wrap;row-gap:6px}
