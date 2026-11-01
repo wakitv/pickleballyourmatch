@@ -13,21 +13,61 @@
   let data = { entries: [] };
 
   /* ---------- the published record ---------- */
+  const sheetUrl = () => (window.TOPLIST_SOURCE && window.TOPLIST_SOURCE.url || "").trim();
+
+  // The spreadsheet stores the facts; the badge code is derived from them with
+  // the same module that minted it, so nothing has to be stored twice and a
+  // scanned badge still matches.
+  function entriesFromSheet(sessions) {
+    const entries = [];
+    sessions.forEach((s, i) => {
+      const batch = i + 1;                       // the script returns oldest first
+      (s.winners || []).forEach(w => {
+        const e = {
+          batch, rank: Number(w.rank), name: String(w.name),
+          wins: Number(w.wins) || 0, losses: Number(w.losses) || 0,
+          day: String(s.day || ""), session: String(s.session || "")
+        };
+        e.code = BadgeCore.sign(e, e.day, e.session).code;
+        e.id = `${e.session}-${e.code}`;
+        e.hash = sha256(BadgeCore.canonical(e));
+        entries.push(e);
+      });
+    });
+    return entries;
+  }
+
   async function loadList() {
+    const url = sheetUrl();
+    if (url) {
+      try {
+        const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(),
+          { cache: "no-store", redirect: "follow" });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || "the script reported a problem");
+        const entries = entriesFromSheet(json.sessions || []);
+        data = { entries, updated: (json.updated || "").slice(0, 10), live: true, sheet: json.sheet };
+        return data;
+      } catch (err) {
+        // Fall through to the committed file rather than showing nothing.
+        data = { entries: [], liveError: String(err.message || err) };
+      }
+    }
     // Browsers refuse to fetch a local file from a local page, so opening this
-    // straight from disk can never read the list. Say so rather than showing a
-    // bare CORS error.
+    // straight from disk can never read the committed list.
     if (location.protocol === "file:") {
-      data = { entries: [], fromFile: true };
+      data = Object.assign({ entries: [], fromFile: true }, data.liveError ? { liveError: data.liveError } : {});
       return data;
     }
     try {
       const res = await fetch("toplist.json?t=" + Date.now(), { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      data = json && Array.isArray(json.entries) ? json : { entries: [] };
+      const base = json && Array.isArray(json.entries) ? json : { entries: [] };
+      data = Object.assign(base, data.liveError ? { liveError: data.liveError } : {});
     } catch (err) {
-      data = { entries: [], error: String(err.message || err) };
+      data = Object.assign({ entries: [], error: String(err.message || err) },
+                           data.liveError ? { liveError: data.liveError } : {});
     }
     return data;
   }
@@ -83,7 +123,9 @@
     }
     if (!data.entries.length) {
       body.className = "toplist-body empty";
-      body.textContent = "No winners published yet. Finish a session in PickleMatch, open Top 3 Badges and press Publish winners.";
+      body.textContent = sheetUrl()
+        ? "No winners yet. Play a session in PickleMatch with the spreadsheet connected and the podium appears here."
+        : "No winners published yet. Finish a session in PickleMatch, open Top 3 Badges and press Publish winners.";
       summary.textContent = "Nothing published yet";
       fp.textContent = "—";
       return;
@@ -101,7 +143,11 @@
 
     summary.textContent = `${data.entries.length} winner${data.entries.length === 1 ? "" : "s"} across `
       + `${groups.length} batch${groups.length === 1 ? "" : "es"}`
+      + (data.live ? " · live from the spreadsheet" : "")
       + (data.updated ? ` · updated ${esc(data.updated)}` : "");
+    if (data.liveError) {
+      summary.textContent += " · could not reach the spreadsheet, showing the published file";
+    }
 
     body.className = "toplist-body";
     body.innerHTML = groups.map(g => `
@@ -196,5 +242,23 @@
     showScan();
   }
   window.addEventListener("hashchange", () => { renderList(); showScan(); });
+
+  const refresh = document.getElementById("refreshBtn");
+  if (refresh) {
+    refresh.addEventListener("click", async () => {
+      refresh.disabled = true;
+      const was = refresh.textContent;
+      refresh.textContent = "Checking…";
+      await boot();
+      refresh.textContent = was;
+      refresh.disabled = false;
+    });
+  }
+  // A list left open on a screen should keep up on its own, but only while it
+  // is actually being looked at.
+  setInterval(() => {
+    if (sheetUrl() && !document.hidden) boot();
+  }, 120000);
+
   boot();
 })();

@@ -1,4 +1,22 @@
-# PickleMatch v6.9 — The Spreadsheet Is the Record
+# PickleMatch v7.0 — The Top List Reads the Spreadsheet
+
+## What changed in v7.0
+The spreadsheet is now the one place session data lives, for the public Top List as well as the app.
+
+- **The Top List reads the sheet live.** Paste the same Web App URL into [`toplist/source.js`](toplist/source.js) and past winners appear there as soon as a session saves itself. No Publish step, no commit, no push.
+- It refreshes on open, on **↻ Refresh**, and every couple of minutes while the page is actually on screen — not in a background tab.
+- **Badges still verify.** The sheet stores the facts, not the badge codes; the page recomputes each code with the same module that minted it. A badge scanned from a session saved this way reads *Official — Batch Winners #2*, highlights its batch and its row.
+- **Nothing is stored twice.** No codes, hashes or batch numbers in the sheet — batches are numbered from the order sessions started.
+- If the URL is blank, or the sheet cannot be reached, the page falls back to the committed `toplist/toplist.json` and says so in the heading.
+
+Two fixes this needed:
+
+- **A session's date is now the day it started**, for both badges and sheet rows. Both used "today", so a badge made after midnight would have had a different date from its own session's row — and the badge code is derived from that date, so it would no longer have matched.
+- **The Apps Script matches columns by heading rather than position**, so adding a column by hand, or a sheet made by an earlier version, no longer shifts the data. A missing column is added on the end instead.
+
+**The trade worth knowing:** `toplist/source.js` is public, so the Web App URL in it is public. Reading the winners is the point and needs no secret; writing still needs the secret phrase, which never leaves the organiser's browser. A stranger with the URL can read your winners, nothing more.
+
+Tested as a whole loop against a stub sheet: played a session and watched it save itself, pressed Reset, played a second, and both appeared on the Top List as Batch #1 and #2 in the right order. A badge from the live session was then scanned and verified. The rewritten script was checked separately in Node for ordering, re-save dedupe and the new column.
 
 ## What changed in v6.9
 - **Import and Export are gone.** The file-based backup, its preview dialog and all of its code and CSS have been removed. The Google Sheet is where sessions are kept now.
@@ -178,7 +196,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=6.9`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=7.0`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero

@@ -73,6 +73,31 @@ as the session goes on.
 app: Reset still clears the session from the browser for good, and there is no way to
 reopen an old session from the spreadsheet. If that matters, say so and it can be added.
 
+## Showing the winners on the Top List
+
+The Top List page can read the winners straight from this sheet, so past champions
+appear there as soon as a session saves — no publishing, no commit.
+
+Open [`toplist/source.js`](../toplist/source.js) and paste the same Web App URL:
+
+```javascript
+window.TOPLIST_SOURCE = {
+  url: "https://script.google.com/macros/s/AKfy.../exec"
+};
+```
+
+Commit that once and the page is live from then on. It refreshes when opened, when
+**↻ Refresh** is pressed, and every couple of minutes while it is on screen.
+
+**This puts the URL in a public file, and that is the intended trade.** Reading the
+winners is meant to be public, and reading needs no secret. Writing still needs the
+secret phrase, which lives only in the organiser's browser and never appears here. The
+one thing a stranger could do with the URL alone is read your winners, or send enough
+requests to eat into Google's daily quota for the script.
+
+If the URL is left empty, or the sheet cannot be reached, the page falls back to the
+committed `toplist/toplist.json` and says so in the heading.
+
 ## If it does not work
 
 | What you see | Usually means |
@@ -80,6 +105,7 @@ reopen an old session from the spreadsheet. If that matters, say so and it can b
 | *Could not reach the script* | The URL is wrong, or the deployment is not set to **Anyone** |
 | *Wrong secret phrase* | The phrase here and in `Code.gs` differ |
 | *replied with something other than JSON* | The URL points at the editor, not the deployment — make sure it ends in `/exec` |
+| Top List says *could not reach the spreadsheet* | The URL in `toplist/source.js` is wrong, or the deployment is not set to **Anyone** |
 
 After editing `Code.gs` you must **Deploy → Manage deployments → Edit → Version: New
 version**, or the old code keeps running.

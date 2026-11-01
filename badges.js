@@ -29,6 +29,7 @@
   // A short fingerprint of this session's finished results, so two different
   // sessions never mint the same badge.
   const sessionId = () => state.sessionId;
+  const sessionDay = () => String(state.startedAt || new Date().toISOString()).slice(0, 10);
 
   function topThree() {
     const diff = pointDiffByPlayer();
@@ -216,7 +217,7 @@
 
   /* ---------- modal ---------- */
   function badgeData() {
-    const day = new Date().toISOString().slice(0, 10);
+    const day = sessionDay();
     const sid = sessionId();
     return topThree().map(e => {
       const { signed, code } = BC.sign(e, day, sid);
