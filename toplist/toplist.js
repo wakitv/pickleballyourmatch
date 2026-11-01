@@ -120,6 +120,22 @@
     const summary = document.getElementById("listSummary");
     const fp = document.getElementById("fingerprint");
 
+    // No spreadsheet connected is the usual reason nothing shows, so say that
+    // first — being opened from a file is a separate problem on top of it.
+    if (!sheetUrl() && (data.fromFile || !data.entries.length)) {
+      body.className = "toplist-body empty";
+      body.innerHTML = "No spreadsheet is connected yet, so there is nothing to show."
+        + "<br><br>Open <code>toplist/source.js</code> and paste your Apps Script Web App URL "
+        + "between the quotes, then reload."
+        + (data.fromFile
+          ? "<br><br>This page is also open straight from a file, and a browser will not let a "
+            + "local page read a local file. Run <code>serve.bat</code> and use the address it "
+            + "prints, or publish to GitHub Pages."
+          : "");
+      summary.textContent = "No spreadsheet connected";
+      fp.textContent = "—";
+      return;
+    }
     if (data.fromFile) {
       body.className = "toplist-body empty";
       body.innerHTML = "This page was opened straight from a file, and a browser will not let a "

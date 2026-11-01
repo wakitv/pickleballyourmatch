@@ -1,4 +1,9 @@
-# PickleMatch v7.1 — One Save Per Session, Colour-Coded
+# PickleMatch v7.2 — Say Why the Top List Is Empty
+
+## What changed in v7.2
+The Top List said only that it could not read a local file when opened from disk, which hid the more likely reason: no spreadsheet is connected. It now names the real cause first — that `toplist/source.js` has no URL in it — and mentions the file problem underneath only when that applies too.
+
+Nothing else changed. The page works as before: with a URL in `toplist/source.js` it reads live from the sheet, without one it falls back to the committed `toplist/toplist.json`, and neither can be read at all when the page is opened straight from a file.
 
 ## What changed in v7.1
 - **A session is written once, when it ends.** Nothing is sent while you play; **Reset** saves the finished session and only then clears it. No session is written twice, and the row holds its final figures rather than whatever was true after the first match.
@@ -205,7 +210,7 @@ The pixel scene is no longer a loop of the same rally. It simulates a doubles ga
 - **Scored to 11, win by 2**, with a scoreboard at the top and a dot marking the serving side. When a game ends the score flashes with **GAME**, then a fresh game starts 0-0 with a random server. Rallies run about 7 shots, so the score moves every few seconds.
 - Simulated over 20 minutes of play while testing: all 8 shot types appear at believable rates, rallies end in a sensible mix of winners and errors, and games finished 11-8, 11-5, 12-10 and so on — win-by-2 included.
 - Still cheap to run: 16fps, and it stops drawing entirely when the tab is hidden or the hero is scrolled out of view. With `prefers-reduced-motion: reduce` it draws a single still frame and never animates.
-- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=7.1`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
+- **Note for editing:** `index.html` loads the CSS and JS with a version query (`app.js?v=7.2`). Bump that number whenever you edit `style.css`, `app.js` or `hero-scene.js`, or browsers will keep serving the old cached copy.
 
 ## What changed in v5.0
 ### Pixel-art doubles rally in the hero
