@@ -446,6 +446,12 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
   color:var(--dim);font-size:11px;font-weight:800}
 .t-playoffs button.selected em{background:rgba(0,0,0,.18);color:var(--lime-ink)}
 .t-playoffs button:disabled{opacity:.45;cursor:not-allowed}
+.t-third{margin-top:8px}
+.t-third button{display:inline-flex;align-items:center;gap:6px}
+.t-third button em{font-style:normal;padding:1px 6px;border-radius:999px;background:var(--tint);
+  color:var(--dim);font-size:11px;font-weight:800;text-transform:uppercase}
+.t-third button.selected em{background:rgba(0,0,0,.18);color:var(--lime-ink)}
+.t-third button:disabled{opacity:.45;cursor:not-allowed}
 .t-ko-tag{background:rgba(244,197,66,.18);color:var(--amber)}
 .t-body{margin-top:14px}
 .t-body.is-off{opacity:.5;pointer-events:none}
@@ -508,6 +514,7 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .t-ko-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;align-items:start}
 .t-ko-round{padding:10px;border-radius:12px;background:var(--inset);border:1px solid var(--line)}
 .t-ko-round.is-now{border-color:rgba(244,197,66,.5)}
+.t-ko-third{border-style:dashed}
 .t-ko-round.is-now .t-round-head{color:var(--amber)}
 .t-ko-champ{margin-top:10px;padding:9px 12px;border-radius:12px;font-family:var(--display);
   font-size:15px;font-weight:800;text-align:center;

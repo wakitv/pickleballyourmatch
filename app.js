@@ -192,6 +192,7 @@ function defaultTournament() {
   // teams go through to a straight knockout (2, 4 or 8).
   return { teams: [], fixtures: [], started: false, startedAt: "",
     divisions: { 1: "all", 2: "all" }, cycles: { 1: 1, 2: 1 }, playoffs: { 1: 0, 2: 0 },
+    thirdPlace: { 1: false, 2: false },
     nextTeamId: 1, nextFixtureId: 1 };
 }
 function defaultState() {
@@ -267,11 +268,13 @@ function normalizeState(raw) {
     // Playoff size. Anything that is not one of the bracket sizes -- including
     // every session saved before v8.3 -- is no playoffs at all.
     const rawPlay = t.playoffs && typeof t.playoffs === "object" ? t.playoffs : {};
+    const rawThird = t.thirdPlace && typeof t.thirdPlace === "object" ? t.thirdPlace : {};
     [1, 2].forEach(c => {
       const want = rawDiv[c] !== undefined ? rawDiv[c] : (c === 1 ? legacy : null);
       tour.divisions[c] = TOURNAMENT_DIVISIONS.some(d => d.key === want) ? want : "all";
       tour.cycles[c] = Math.max(1, Math.min(4, Math.round(Number(rawCyc[c])) || 1));
       tour.playoffs[c] = [2, 4, 8].includes(Number(rawPlay[c])) ? Number(rawPlay[c]) : 0;
+      tour.thirdPlace[c] = rawThird[c] === true;
     });
     const seen = new Set();
     tour.teams = (Array.isArray(t.teams) ? t.teams : []).reduce((keep, team) => {
@@ -298,8 +301,11 @@ function normalizeState(raw) {
       // A knockout fixture is a different animal: it has no round number in
       // the group sense, and carries the bracket it belongs to instead.
       if (f.stage === "ko" && [2, 4, 8].includes(Number(f.koSize))) {
+        // The third-place match sits beside the final: same size, its own flag,
+        // because it decides a place rather than the title.
         keep.push({ id: Number(f.id) || keep.length + 1, round: 0, a, b, court, div, leg: 1,
-          stage: "ko", koSize: Number(f.koSize), slot: Math.max(0, Math.round(Number(f.slot)) || 0) });
+          stage: "ko", koSize: Number(f.koSize), slot: Math.max(0, Math.round(Number(f.slot)) || 0),
+          third: f.third === true });
         return keep;
       }
       keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b, court, div,
@@ -2063,7 +2069,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "8.3";
+const APP_VERSION = "8.4";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;
@@ -2090,8 +2096,8 @@ function buildSessionSummary() {
       // winning the thing means.
       const sizes = [...new Set(record.brackets.map(b => b.playoffs))];
       const ko = sizes.length === 1
-        ? (sizes[0] === "None" ? "" : `, ${sizes[0].toLowerCase()} knockout`)
-        : `, knockout — ${record.brackets.map(b =>
+        ? (sizes[0] === "None" ? "" : `, ${sizes[0].toLowerCase()}`)
+        : `, playoffs — ${record.brackets.map(b =>
             `Court ${b.court}: ${b.playoffs === "None" ? "none" : b.playoffs}`).join(" · ")}`;
       const full = named + ko;
       return tournamentMode() ? full : `${full}, then open play`;

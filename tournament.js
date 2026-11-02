@@ -104,6 +104,36 @@
     return teamsOn(court).length >= n ? n : 0;
   };
 
+  // The third-place match: the two beaten semi-finalists play off for it. Only
+  // a bracket with semi-finals has two of them, so a top 2 cannot have one.
+  const thirdPlaceOn = court =>
+    playoffsFor(court) >= 4 && (T().thirdPlace || {})[Number(court)] === true;
+  const finalOn = court => koOn(court).find(f => Number(f.koSize) === 2 && !f.third) || null;
+  const thirdOn = court => koOn(court).find(f => f.third) || null;
+  // Every match a playoff is worth: a knockout of N is N-1, plus the third-place
+  // match if it is being played.
+  const koTotal = court => {
+    const size = playoffsFor(court);
+    return size ? size - 1 + (thirdPlaceOn(court) ? 1 : 0) : 0;
+  };
+
+  function setThirdPlace(court, want) {
+    court = Number(court);
+    want = want === true;
+    if (want === ((T().thirdPlace || {})[court] === true)) return;
+    if (koOn(court).length) {
+      return toast(`Court ${court}'s playoffs have already started. Scrap the draw to change them.`);
+    }
+    if (want && playoffsFor(court) < 4) {
+      return toast("A third-place match needs semi-finals — pick a top 4 or top 8 playoff first.");
+    }
+    T().thirdPlace[court] = want;
+    saveState();
+    toast(want
+      ? `Court ${court}: the beaten semi-finalists will play off for third.`
+      : `Court ${court}: no third-place match — both semi-finalists share third.`);
+  }
+
   // "1 v 4, 2 v 3" -- the seeding, said the way a draw sheet says it.
   const pairText = size => {
     const parts = [];
@@ -300,7 +330,8 @@
       const size = playoffsFor(c);
       return `Court ${c}: ${teamsOn(c).length} teams, ${n} match${n === 1 ? "" : "es"}, `
         + `${gamesEachOn(c)} game${gamesEachOn(c) === 1 ? "" : "s"} each`
-        + (size ? `, then a top ${size} knockout` : "");
+        + (size ? `, then a top ${size} knockout` : "")
+        + (thirdPlaceOn(c) ? " with a third-place match" : "");
     });
     toast(`Draw made — ${parts.join(" · ")}. Press Start Next Match.`);
   }
@@ -491,7 +522,18 @@
       const r = roundFor(f);
       return r.winner === "A" ? f.a : f.b;
     });
-    return addKoRound(court, winners, smallest / 2);
+    addKoRound(court, winners, smallest / 2);
+    // Losing a semi-final is where the third-place match comes from, so it is
+    // drawn at the same moment as the final it sits beside.
+    if (smallest === 4 && thirdPlaceOn(court)) {
+      const losers = last.map(f => {
+        const r = roundFor(f);
+        return r.winner === "A" ? f.b : f.a;
+      });
+      T().fixtures.push({ id: T().nextFixtureId++, round: 0, a: losers[0], b: losers[1],
+        court, div: divisionFor(court), leg: 1, stage: "ko", koSize: 2, slot: 1, third: true });
+    }
+    return true;
   }
 
   // `order` is seeded best-first; the pairing is first against last.
@@ -513,7 +555,7 @@
   function undrawnPlayoffs(court) {
     const size = playoffsFor(court);
     if (!size || !groupOn(court).length) return 0;  // no draw, nothing to come
-    return (size - 1) - koOn(court).length;         // a knockout of N is N-1 matches
+    return koTotal(court) - koOn(court).length;
   }
   const matchesLeft = () => remaining().length
     + courts().reduce((n, c) => n + undrawnPlayoffs(c), 0);
@@ -548,14 +590,25 @@
     // The round each team went out at. A bigger round means an earlier exit.
     const out = new Map();
     koOn(court).forEach(f => {
+      if (f.third) return;                   // a place, not an exit
       const r = roundFor(f);
       if (!r || r.status !== "completed") return;
       const loser = r.winner === "A" ? f.b : f.a;
       out.set(loser, Math.max(out.get(loser) || 0, Number(f.koSize)));
     });
+    // Both beaten semi-finalists went out at the same point, so where they
+    // played off for third, that match separates them rather than the table.
+    const third = thirdOn(court);
+    const tr = third && roundFor(third);
+    const thirdRank = new Map();
+    if (tr && tr.status === "completed") {
+      thirdRank.set(tr.winner === "A" ? third.a : third.b, 0);
+      thirdRank.set(tr.winner === "A" ? third.b : third.a, 1);
+    }
     const tier = t => !through.has(t.id) ? Infinity : (out.get(t.id) || 0);
+    const place = t => thirdRank.has(t.id) ? thirdRank.get(t.id) : 0;
     return group.map(r => r.team).sort((a, b) =>
-      tier(a) - tier(b) || pos.get(a.id) - pos.get(b.id));
+      tier(a) - tier(b) || place(a) - place(b) || pos.get(a.id) - pos.get(b.id));
   }
 
   // How far a team got, for the table and for the saved session. The words are
@@ -569,7 +622,14 @@
     if (champ && champ.id === id) return "Champion";
     const through = standingsOn(court).slice(0, size).map(r => r.team.id);
     if (!through.includes(id)) return "Group stage";
+    // A played third-place match turns "semi-finalist" into a placing.
+    const third = thirdOn(court);
+    const tr = third && roundFor(third);
+    if (tr && tr.status === "completed" && (third.a === id || third.b === id)) {
+      return (tr.winner === "A" ? third.a : third.b) === id ? "Third place" : "Fourth place";
+    }
     const lost = koOn(court).find(f => {
+      if (f.third) return false;
       const r = roundFor(f);
       return r && r.status === "completed" && (r.winner === "A" ? f.b : f.a) === id;
     });
@@ -583,7 +643,7 @@
     const size = playoffsFor(court);
     const table = standingsOn(court);
     if (!size) return table.length && table[0].played ? table[0].team : null;
-    const final = koOn(court).find(f => Number(f.koSize) === 2);
+    const final = finalOn(court);
     const r = final && roundFor(final);
     if (!r || r.status !== "completed") return null;
     return teamOf(r.winner === "A" ? final.a : final.b);
@@ -681,7 +741,8 @@
     const elsewhere = court !== (Number(r.court) || 1) ? ` (Court ${court} draw)` : "";
     // A knockout match is not round n of m: it is the semi-final.
     const where = f.stage === "ko"
-      ? `${koName(f.koSize)}${Number(f.koSize) > 2 ? ` ${Number(f.slot) + 1}` : ""}`
+      ? (f.third ? "Third-place match"
+        : `${koName(f.koSize)}${Number(f.koSize) > 2 ? ` ${Number(f.slot) + 1}` : ""}`)
       : `Round ${f.round} of ${roundsOn(court)}`;
     return (d.key === "all" ? "" : `<span class="t-round-tag t-div-tag">🏅 ${esc(d.label)}</span>`)
       + `<span class="t-round-tag${f.stage === "ko" ? " t-ko-tag" : ""}">🏆 ${esc(where)}${esc(elsewhere)}</span>`;
@@ -702,7 +763,10 @@
     const ko = koOn(court);
     if (!ko.length) return "Playoffs to draw";
     const open = ko.filter(f => !played(f));
-    if (open.length) return koName(Math.min(...open.map(f => Number(f.koSize))));
+    if (open.length) {
+      return open.every(f => f.third) ? "Third-place match"
+        : koName(Math.min(...open.map(f => Number(f.koSize))));
+    }
     const champ = championOn(court);
     return champ ? `Won by ${teamName(champ)}` : "Playoffs complete";
   }
@@ -712,7 +776,9 @@
     if (!size) return "done";
     const open = koOn(court).filter(f => !played(f));
     if (!koOn(court).length) return "playoffs";
-    return open.length ? koName(Math.min(...open.map(f => Number(f.koSize)))).toLowerCase() : "won";
+    if (!open.length) return "won";
+    return open.every(f => f.third) ? "3rd place"
+      : koName(Math.min(...open.map(f => Number(f.koSize)))).toLowerCase();
   }
 
   // What the hero chip and the Active Matches subtitle say. One bracket reads
@@ -751,8 +817,10 @@
         teams: teamsOn(c).length,
         rounds: roundsOn(c),
         format: `${CYCLE_WORDS[cyclesFor(c)]} round robin`
-          + (size ? ` + top ${size} knockout` : ""),
-        playoffs: size ? `Top ${size}` : "None",
+          + (size ? ` + top ${size} knockout` : "")
+          + (thirdPlaceOn(c) ? " with a third-place match" : ""),
+        playoffs: size
+          ? `Top ${size} knockout${thirdPlaceOn(c) ? " + third place" : ""}` : "None",
         gamesPerTeam: gamesEachOn(c),
         matches: list.length,
         played: list.filter(played).length,
@@ -867,12 +935,16 @@
     for (let n = size; n >= 2; n /= 2) rounds.push(n);
     const champ = championOn(court);
     const title = n => n > 2 ? `${koName(n)}s` : koName(n);
+    const third = thirdOn(court);
+    const thirdOpen = thirdPlaceOn(court) && (!third || !played(third));
     return `<div class="t-ko-box">
-      <div class="t-ko-head">Playoffs · top ${size}${
+      <div class="t-ko-head">Playoffs · top ${size}${thirdPlaceOn(court) ? " + third place" : ""}${
         groupDone(court) ? "" : ` · seeded from this table when the group ends (${pairText(size)})`}</div>
       <div class="t-ko-grid">
         ${rounds.map(n => {
-          const list = ko.filter(f => Number(f.koSize) === n).sort((a, b) => a.slot - b.slot);
+          // The third-place match shares the final's size but not its column.
+          const list = ko.filter(f => Number(f.koSize) === n && !f.third)
+            .sort((a, b) => a.slot - b.slot);
           const now = list.length && list.some(f => !played(f));
           return `<div class="t-ko-round${now ? " is-now" : ""}">
             <div class="t-round-head">${esc(title(n))}${now ? " · now" : ""}</div>
@@ -883,6 +955,11 @@
                 : `Winners of the ${esc(title(n * 2).toLowerCase())}`}</div>`}
           </div>`;
         }).join("")}
+        ${thirdPlaceOn(court) ? `<div class="t-ko-round t-ko-third${thirdOpen && third ? " is-now" : ""}">
+          <div class="t-round-head">Third place${thirdOpen && third ? " · now" : ""}</div>
+          ${third ? fixtureLine(third)
+            : `<div class="t-bye">Losers of the ${esc(title(4).toLowerCase())}</div>`}
+        </div>` : ""}
       </div>
       ${champ ? `<div class="t-ko-champ">🏆 ${esc(teamName(champ))} win Court ${court}</div>` : ""}
     </div>`;
@@ -1033,6 +1110,18 @@
         size ? ` <em>${esc(koName(size))}</em>` : ""}</button>`;
     }).join("");
 
+    // The third-place match is a yes/no beside the sizes, and only means
+    // anything where there are semi-finals to lose.
+    const thirdBox = document.getElementById("tThird");
+    if (thirdBox) {
+      const want = thirdPlaceOn(editing);
+      thirdBox.classList.toggle("hidden", picked < 4);
+      thirdBox.innerHTML = `<button type="button" data-third="1" class="${want ? "selected" : ""}"
+        aria-pressed="${want}"${!on() || drawn || picked < 4 ? " disabled" : ""}
+        title="The two beaten semi-finalists play off for third">🥉 Third-place match
+        <em>${want ? "on" : "off"}</em></button>`;
+    }
+
     const label = document.getElementById("tPlayoffLabel");
     if (label) label.textContent = courts().length > 1 ? `🥇 Court ${editing} playoffs` : "🥇 Playoffs";
     const note = document.getElementById("tPlayoffNote");
@@ -1047,7 +1136,8 @@
         ? "Draw at least two teams to finish with a knockout."
         : picked
           ? `The top ${picked} of Court ${editing}'s table play off: seeds ${pairText(picked)}${tailText(picked)}`
-            + ` — ${picked - 1} extra match${picked - 1 === 1 ? "" : "es"} after the round robin.`
+            + (thirdPlaceOn(editing) ? `, plus a third-place match between the beaten semi-finalists` : "")
+            + ` — ${koTotal(editing)} extra match${koTotal(editing) === 1 ? "" : "es"} after the round robin.`
             + ` The champion is whoever wins the final, not whoever tops the table.`
           : `No playoffs: whoever tops Court ${editing}'s table wins it. Pick a size to finish`
             + ` with a knockout instead.` + short;
@@ -1080,7 +1170,8 @@
         return `Court ${c} (${d.key === "all" ? "all levels" : d.label}): `
           + `${teamsOn(c).length} teams, ${roundsOn(c)} rounds, ${groupOn(c).length} matches, `
           + `${gamesEachOn(c)} games each`
-          + (size ? `, then a top ${size} knockout` : "");
+          + (size ? `, then a top ${size} knockout` : "")
+          + (thirdPlaceOn(c) ? " with a third-place match" : "");
       }).join(" · ") + (left ? ` — ${left} still to play.` : " — all played.");
       document.getElementById("tEndBtn").textContent = left ? "Scrap the draw" : "Scrap the draw & re-draw";
       return;
@@ -1174,6 +1265,10 @@
       const btn = e.target.closest("[data-playoff]");
       if (btn && !btn.disabled) setPlayoffs(editing, btn.dataset.playoff);
     });
+    document.getElementById("tThird").addEventListener("click", e => {
+      const btn = e.target.closest("[data-third]");
+      if (btn && !btn.disabled) setThirdPlace(editing, !thirdPlaceOn(editing));
+    });
     document.getElementById("tDivisions").addEventListener("click", e => {
       const btn = e.target.closest("[data-division]");
       if (btn && !btn.disabled) setDivision(editing, btn.dataset.division);
@@ -1192,6 +1287,7 @@
     standingsOn, liveCourts, divisionFor, headline,
     cardTags, sideLabel,
     setPlayoffs, playoffsFor, playoffSizes: () => PLAYOFF_SIZES, koName,
+    setThirdPlace, thirdPlaceOn,
     afterScore, placementOn, championOn,
     remaining: matchesLeft
   };

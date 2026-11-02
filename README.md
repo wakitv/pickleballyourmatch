@@ -1,4 +1,42 @@
-# BuenasxPickle v8.3 — Playoffs
+# BuenasxPickle v8.4 — Third Place
+
+## What changed in v8.4
+A playoff bracket can now finish with a **third-place match**. Turn it on beside the
+playoff size and the two beaten semi-finalists play off for third instead of sharing it.
+
+### Only where there are semi-finals to lose
+The option appears for a **top 4 or top 8** playoff and nowhere else — a top 2 is a
+final on its own, with nobody beaten in a semi-final to play. Drop the size back to
+top 2 and the control disappears; put it back to top 4 and your setting is still there.
+Like the playoff size, it is changeable right up until the bracket is drawn.
+
+### Drawn beside the final
+The match is created at the same moment as the final, out of the two teams that lost
+the semi-finals — so with two courts free, **the final and the third-place match run
+side by side**. It sits in its own column of the bracket, under its own heading.
+
+### It decides a place, not an exit
+The group table is unmoved by it, as by every other playoff result. What it changes is
+the **order below the runner-up**: without it the two beaten semi-finalists are split by
+their group position; with it, by the match they just played. The table says
+`Third place` and `Fourth place` where it used to say `Semi-finalist` twice, and the
+player leaderboard, the Top 3 badges and the Top List follow.
+
+### In the spreadsheet
+**Format** reads `Round robin tournament, top 4 knockout + third place`, and the saved
+finishing order carries `Third place` and `Fourth place` by name.
+
+### Checked
+Top 4 and top 8 with the third-place match played out end to end: the extra match drawn
+from the right two teams, the right total (N matches for a bracket of N, up from N − 1),
+the group table untouched, and the finishing order reading champion, runner-up, third,
+fourth. An upset in the third-place match swaps third and fourth and nothing else.
+
+Also checked: the final and the third-place match filling two courts at once; the
+control hidden at top 2 and the setting remembered when the size goes back up; a session
+saved between the semi-finals and the final reloaded with both matches intact; and a top
+2 bracket refusing the option outright. Both themes at 1280px and 375px — the bracket's
+three columns stack on a phone with no horizontal overflow — and no console errors.
 
 ## What changed in v8.3
 A tournament can now finish with a **knockout**. Each court picks its playoff size —
