@@ -1,4 +1,76 @@
-# BuenasxPickle v8.2 — Games Per Team
+# BuenasxPickle v8.3 — Playoffs
+
+## What changed in v8.3
+A tournament can now finish with a **knockout**. Each court picks its playoff size —
+**None**, **Top 2**, **Top 4** or **Top 8** — and when the round robin ends, that many
+teams go through to a straight elimination bracket. Without playoffs nothing changes:
+whoever tops the table wins it, exactly as in v8.2.
+
+### The group decides who, the knockout decides what
+The round robin becomes a **group stage**: it still ranks everybody by wins, then point
+difference, then points scored, then their own matches against each other — but with
+playoffs on it is seeding, not a title. The table says so, and the medals move to the
+bracket. A playoff result **never moves the group table**; the two are separate
+competitions inside one bracket, and the standings panel shows both.
+
+### Seeding, and why the top two cannot meet early
+The first playoff round pairs **1 v 4 and 2 v 3** (or 1 v 8, 2 v 7, 3 v 6, 4 v 5 for a
+top 8). Each later round pairs match *i*'s winner with match (last − *i*)'s, which is
+what keeps the two best-placed teams on opposite sides of the draw: they can only meet
+in the final.
+
+A size is only offered when the court has **at least that many teams**, so no team is
+ever handed a bye into a round it did not play.
+
+### Drawn a round at a time
+The bracket cannot be drawn in full up front, because its seeds are not known until the
+round before has been played. So it is built as it becomes knowable: the quarter-finals
+the moment the group ends, the semi-finals when the quarters are in, the final when the
+semis are. Each stage is drawn both when a score completes the round before it **and**
+when Start Next Match is pressed — so a reload, or playoffs switched on after the group
+has already finished, still finds its matches.
+
+Matches still to come include the rounds not yet drawn. Without that, two semi-finals
+on court at once would read as "nothing left" and Start Next Match would switch itself
+off with a final to play.
+
+### Where each team finished
+The podium follows the knockout, not the table. The order is champion, runner-up, the
+teams that went out in the semi-finals, then the quarter-finals, then whoever did not
+qualify — teams level on how far they got are separated by their group position. The
+player leaderboard, the Top 3 badges and the Top List all follow that order, so the
+champions lead the board even when they finished fourth in the group.
+
+The table itself wears the result: `Champion`, `Runner-up`, `Semi-finalist`,
+`Quarter-finalist`, or nothing at all for the group stage, with a dotted line across
+the table showing where the cut falls.
+
+### Set per court, changeable until it is drawn
+Playoffs are per court like the division and the length, so Court 1 can run a top 4 for
+the intermediate-to-advanced bracket while Court 2's beginners play a straight final.
+The size stays changeable right up until the bracket is drawn — it seeds off the final
+table, so nothing before then depends on it — and after that it takes scrapping the
+draw. Ties need no rule: a knockout cannot allow one, and a tied score was already
+refused.
+
+### In the spreadsheet
+**Format** reads `Round robin tournament, top 4 knockout`, or names each court when they
+differ. **Champion** is the winner of the final, not the top of the table. The saved
+record carries both orders — the group standings with each team's result, and the
+finishing order — because they are different things.
+
+### Checked
+Top 2, top 4 and top 8 verified end to end: the right number of matches (N − 1 for a
+bracket of N), the right pairings at every round, and seeds 1 and 2 meeting only in the
+final. A top 4 played out as a run of upsets — seed 4 beating seed 1, seed 3 beating
+seed 2, then seed 4 winning the final — left the group table byte-for-byte unchanged and
+put the champion pair at the top of the player leaderboard.
+
+Also checked: both brackets running different playoff sizes at once; a size larger than
+the field refused; playoffs switched on after the group had already finished; a session
+saved mid-knockout and reloaded, then played to the end; scrapping the draw clearing the
+bracket but keeping the setting; and a knockout left behind with no group stage dropped
+on load. Both themes at 1280px and 375px, no horizontal overflow, no console errors.
 
 ## What changed in v8.2
 Each court's tournament now has a **length**. A stepper beside the division sets how

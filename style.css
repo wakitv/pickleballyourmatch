@@ -434,12 +434,19 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .t-court-tabs button:disabled{opacity:.45;cursor:not-allowed}
 .t-division-box{margin-top:14px}
 .t-length-box{margin-top:10px}
+.t-playoff-box{margin-top:10px}
 .t-divisions button{display:inline-flex;align-items:center;gap:6px}
 .t-divisions button em{font-style:normal;padding:1px 6px;border-radius:999px;background:var(--tint);
   color:var(--dim);font-size:11px;font-weight:800}
 .t-divisions button.selected em{background:rgba(0,0,0,.18);color:var(--lime-ink)}
 .t-divisions button:disabled{opacity:.45;cursor:not-allowed}
 .t-div-tag{background:rgba(255,192,138,.16);color:var(--mint)}
+.t-playoffs button{display:inline-flex;align-items:center;gap:6px}
+.t-playoffs button em{font-style:normal;padding:1px 6px;border-radius:999px;background:var(--tint);
+  color:var(--dim);font-size:11px;font-weight:800}
+.t-playoffs button.selected em{background:rgba(0,0,0,.18);color:var(--lime-ink)}
+.t-playoffs button:disabled{opacity:.45;cursor:not-allowed}
+.t-ko-tag{background:rgba(244,197,66,.18);color:var(--amber)}
 .t-body{margin-top:14px}
 .t-body.is-off{opacity:.5;pointer-events:none}
 .t-draw-actions{display:flex;flex-wrap:wrap;gap:8px}
@@ -486,6 +493,25 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .t-win{color:var(--green);font-weight:800}
 .t-bye{margin-top:6px;padding:6px 10px;border-radius:10px;border:1px dashed var(--line-2);
   color:var(--dim);font-size:11px;text-align:center}
+
+/* The playoffs. A column per round, left to right, so it reads as the tree it
+   is; on a phone the columns stack and the arrow between them is the order. */
+.t-bracket-ko{background:rgba(244,197,66,.18);color:var(--amber)}
+.t-cut{margin:4px 0 8px;padding:5px 10px;border-radius:999px;border:1px dashed rgba(244,197,66,.45);
+  color:var(--amber);font-size:11px;font-weight:800;text-align:center}
+.t-exit{margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(244,197,66,.16);
+  color:var(--amber);font-size:10px;font-weight:800;white-space:nowrap}
+.t-ko-box{margin-top:12px;padding:12px;border-radius:14px;background:var(--panel-2);
+  border:1px solid rgba(244,197,66,.3)}
+.t-ko-head{margin-bottom:10px;color:var(--amber);font-size:11px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;line-height:1.5}
+.t-ko-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;align-items:start}
+.t-ko-round{padding:10px;border-radius:12px;background:var(--inset);border:1px solid var(--line)}
+.t-ko-round.is-now{border-color:rgba(244,197,66,.5)}
+.t-ko-round.is-now .t-round-head{color:var(--amber)}
+.t-ko-champ{margin-top:10px;padding:9px 12px;border-radius:12px;font-family:var(--display);
+  font-size:15px;font-weight:800;text-align:center;
+  background:linear-gradient(90deg,rgba(244,197,66,.2),rgba(255,122,24,.12));color:var(--text)}
 
 /* ---------- waiting / rotation ---------- */
 .rotation-dashboard{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}

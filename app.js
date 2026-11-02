@@ -188,8 +188,10 @@ function newSessionId() {
 }
 function defaultTournament() {
   // One division per court: each court runs its own bracket.
+  // playoffs: 0 is none -- the group table decides it -- otherwise how many
+  // teams go through to a straight knockout (2, 4 or 8).
   return { teams: [], fixtures: [], started: false, startedAt: "",
-    divisions: { 1: "all", 2: "all" }, cycles: { 1: 1, 2: 1 },
+    divisions: { 1: "all", 2: "all" }, cycles: { 1: 1, 2: 1 }, playoffs: { 1: 0, 2: 0 },
     nextTeamId: 1, nextFixtureId: 1 };
 }
 function defaultState() {
@@ -262,10 +264,14 @@ function normalizeState(raw) {
     // How many times each court's draw goes round. Anything older is a single
     // round robin, which is what every draw was before this was settable.
     const rawCyc = t.cycles && typeof t.cycles === "object" ? t.cycles : {};
+    // Playoff size. Anything that is not one of the bracket sizes -- including
+    // every session saved before v8.3 -- is no playoffs at all.
+    const rawPlay = t.playoffs && typeof t.playoffs === "object" ? t.playoffs : {};
     [1, 2].forEach(c => {
       const want = rawDiv[c] !== undefined ? rawDiv[c] : (c === 1 ? legacy : null);
       tour.divisions[c] = TOURNAMENT_DIVISIONS.some(d => d.key === want) ? want : "all";
       tour.cycles[c] = Math.max(1, Math.min(4, Math.round(Number(rawCyc[c])) || 1));
+      tour.playoffs[c] = [2, 4, 8].includes(Number(rawPlay[c])) ? Number(rawPlay[c]) : 0;
     });
     const seen = new Set();
     tour.teams = (Array.isArray(t.teams) ? t.teams : []).reduce((keep, team) => {
@@ -289,10 +295,22 @@ function normalizeState(raw) {
       // later draw has moved on to another one.
       const court = Number(f.court) === 2 ? 2 : 1;
       const div = TOURNAMENT_DIVISIONS.some(d => d.key === f.div) ? f.div : tour.divisions[court];
+      // A knockout fixture is a different animal: it has no round number in
+      // the group sense, and carries the bracket it belongs to instead.
+      if (f.stage === "ko" && [2, 4, 8].includes(Number(f.koSize))) {
+        keep.push({ id: Number(f.id) || keep.length + 1, round: 0, a, b, court, div, leg: 1,
+          stage: "ko", koSize: Number(f.koSize), slot: Math.max(0, Math.round(Number(f.slot)) || 0) });
+        return keep;
+      }
       keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b, court, div,
-        leg: Math.max(1, Math.round(Number(f.leg)) || 1) });
+        leg: Math.max(1, Math.round(Number(f.leg)) || 1), stage: "group" });
       return keep;
     }, []);
+    // A knockout cannot outlive the group it was seeded from: if the group
+    // fixtures are gone, so are its playoffs.
+    if (!tour.fixtures.some(f => f.stage !== "ko")) {
+      tour.fixtures = tour.fixtures.filter(f => f.stage !== "ko");
+    }
     tour.started = t.started === true && tour.fixtures.length > 0;
     tour.startedAt = typeof t.startedAt === "string" ? t.startedAt : "";
     tour.nextTeamId = Math.max(tour.nextTeamId, ...tour.teams.map(x => x.id + 1), 1);
@@ -1117,11 +1135,17 @@ function recordScore() {
   round.preRatings = preRatings;
   round.completedAt = Date.now();
   closeModal();
+
+  // A tournament result can be the one that draws the next knockout round, so
+  // that happens before the state is written, not after.
+  const tour = tourney();
+  const extra = tour && round.fixtureId ? tour.afterScore(round) : "";
   saveState();
 
   const winnerNames = winningIds.map(id => player(id).name).join(" + ");
   const deltaText = winningIds.map(id => `+${ratingChanges[id].toFixed(2)}`).join(" / ");
-  toast(`Round ${round.id} saved. ${winnerNames} won (${deltaText} rating). Press Generate Matches for the next match.`);
+  toast(`Round ${round.id} saved. ${winnerNames} won (${deltaText} rating).${extra}`
+    + ` Press ${tour ? "Start Next Match" : "Generate Matches"} for the next match.`);
 }
 
 /*
@@ -1910,6 +1934,8 @@ function renderLeaderboard() {
   el.innerHTML = `
     <div class="lb-note">${tourney() && tourney().started()
       ? `Ranked by the <b>tournament standings</b>: the champions come first, then the runners-up, and so on. Within a team the player with the better point difference is listed first.`
+        + (tourney().liveCourts().some(c => tourney().playoffsFor(c))
+          ? ` Where playoffs are on, that is the knockout's order — whoever won the final, then the team it beat, then whoever went out the round before.` : "")
       : `Ranked by <b>Score</b>: win rate adjusted for games played, so a lucky start can't jump the board. Starting rating does not affect rank.`}</div>
     <div class="rank-row rank-head">
       <div>#</div><div>Player</div><div class="lb-cell optional">Wins</div><div class="lb-cell">Games</div><div class="lb-cell optional">Win rate</div><div class="lb-cell optional">Rating</div><div class="lb-cell">Score</div>
@@ -2037,7 +2063,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "8.2";
+const APP_VERSION = "8.3";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;
@@ -2060,7 +2086,15 @@ function buildSessionSummary() {
       const named = plain ? "Round robin tournament"
         : `Round robin tournament — ${record.brackets.map(b => b.division === "All levels"
             ? `Court ${b.court}` : `Court ${b.court}: ${b.division}`).join(" · ")}`;
-      return tournamentMode() ? named : `${named}, then open play`;
+      // The playoffs belong in the format, because a knockout changes what
+      // winning the thing means.
+      const sizes = [...new Set(record.brackets.map(b => b.playoffs))];
+      const ko = sizes.length === 1
+        ? (sizes[0] === "None" ? "" : `, ${sizes[0].toLowerCase()} knockout`)
+        : `, knockout — ${record.brackets.map(b =>
+            `Court ${b.court}: ${b.playoffs === "None" ? "none" : b.playoffs}`).join(" · ")}`;
+      const full = named + ko;
+      return tournamentMode() ? full : `${full}, then open play`;
     })(),
     tournament: window.Tournament ? window.Tournament.summary() : null,
     courtLevels: courtRulesOn()
