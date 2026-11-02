@@ -16,6 +16,40 @@ const COURT_LEVEL_PRESETS = [
   { key: "adv", label: "Advanced",     min: 4.0, max: 5.0 },
   { key: "3up", label: "3.0 & up",     min: 3.0, max: 5.0 }
 ];
+/*
+  Tournament divisions (v8.1)
+  ---------------------------
+  A tournament can be run for one skill band rather than for everyone at once:
+  a beginners' round robin, or an intermediate-to-advanced one. The bands are
+  the same ones the courts use -- only the labels differ, because here a band
+  names a competition rather than a court.
+
+  Eligibility is a draw-time question. Teams are fixed once the draw is made,
+  so a rating that drifts across a band edge mid-tournament changes nothing.
+*/
+const TOURNAMENT_DIVISIONS = [
+  { key: "all", label: "All levels",            min: 2.0, max: 5.0 },
+  { key: "beg", label: "Beginner",              min: 2.0, max: 2.9 },
+  { key: "int", label: "Intermediate",          min: 3.0, max: 3.9 },
+  { key: "adv", label: "Advanced",              min: 4.0, max: 5.0 },
+  { key: "ia",  label: "Intermediate–Advanced", min: 3.0, max: 5.0 }
+];
+function divisionOf(key) {
+  return TOURNAMENT_DIVISIONS.find(d => d.key === key) || TOURNAMENT_DIVISIONS[0];
+}
+// Open-ended edges, exactly as the courts have them: the lowest min is no
+// floor and the highest max no ceiling, so a rating outside the slider range
+// is never shut out of its own division.
+function fitsDivision(p, key) {
+  const { min, max } = divisionOf(key);
+  const r = Number(p.rating) || 3;
+  return (min <= COURT_RATING_MIN || r >= min - 1e-9) && (max >= COURT_RATING_MAX || r <= max + 1e-9);
+}
+function divisionLabel(key) {
+  const d = divisionOf(key);
+  return d.key === "all" ? d.label : `${d.label} · ${bandRangeText(d)}`;
+}
+
 function defaultCourtRules() {
   return { enabled: false, 1: { min: COURT_RATING_MIN, max: COURT_RATING_MAX }, 2: { min: COURT_RATING_MIN, max: COURT_RATING_MAX } };
 }
@@ -153,7 +187,9 @@ function newSessionId() {
   return stamp + rand;
 }
 function defaultTournament() {
-  return { teams: [], fixtures: [], started: false, startedAt: "", nextTeamId: 1, nextFixtureId: 1 };
+  // One division per court: each court runs its own bracket.
+  return { teams: [], fixtures: [], started: false, startedAt: "",
+    divisions: { 1: "all", 2: "all" }, nextTeamId: 1, nextFixtureId: 1 };
 }
 function defaultState() {
   return { players: [], rounds: [], nextPlayerId: 1, nextRoundId: 1, queueSeq: 1, courtCount: 2,
@@ -219,13 +255,23 @@ function normalizeState(raw) {
     const t = s.tournament && typeof s.tournament === "object" ? s.tournament : {};
     const tour = defaultTournament();
     tour.nextTeamId = Number(t.nextTeamId) || 1;
+    // v8.1 kept one division for the whole tournament; it becomes Court 1's.
+    const legacy = TOURNAMENT_DIVISIONS.some(d => d.key === t.division) ? t.division : null;
+    const rawDiv = t.divisions && typeof t.divisions === "object" ? t.divisions : {};
+    [1, 2].forEach(c => {
+      const want = rawDiv[c] !== undefined ? rawDiv[c] : (c === 1 ? legacy : null);
+      tour.divisions[c] = TOURNAMENT_DIVISIONS.some(d => d.key === want) ? want : "all";
+    });
     const seen = new Set();
     tour.teams = (Array.isArray(t.teams) ? t.teams : []).reduce((keep, team) => {
       if (!team || !Array.isArray(team.players) || team.players.length !== 2) return keep;
       const [a, b] = team.players.map(Number);
       if (!ids.has(a) || !ids.has(b) || a === b || seen.has(a) || seen.has(b)) return keep;
       seen.add(a); seen.add(b);
-      keep.push({ id: Number(team.id) || keep.length + 1, players: [a, b] });
+      // The court is the bracket the team belongs to. Anything older, or out
+      // of range, joins Court 1 -- the only bracket such a draw ever had.
+      keep.push({ id: Number(team.id) || keep.length + 1, players: [a, b],
+        court: Number(team.court) === 2 ? 2 : 1 });
       return keep;
     }, []);
     const teamIds = new Set(tour.teams.map(x => x.id));
@@ -233,7 +279,12 @@ function normalizeState(raw) {
       if (!f) return keep;
       const a = Number(f.a), b = Number(f.b);
       if (!teamIds.has(a) || !teamIds.has(b) || a === b) return keep;
-      keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b });
+      // The division is kept on the fixture, not just on the tournament, so a
+      // card in History still names the competition it was played in after a
+      // later draw has moved on to another one.
+      const court = Number(f.court) === 2 ? 2 : 1;
+      const div = TOURNAMENT_DIVISIONS.some(d => d.key === f.div) ? f.div : tour.divisions[court];
+      keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b, court, div });
       return keep;
     }, []);
     tour.started = t.started === true && tour.fixtures.length > 0;
@@ -1164,7 +1215,7 @@ function render() {
   if (matchesSubtitle) {
     const left = t && t.started() ? t.remaining() : 0;
     matchesSubtitle.textContent = t && t.started()
-      ? (left ? `Round ${t.currentRound()} of ${t.totalRounds()} · ${left} match${left === 1 ? "" : "es"} left in the draw`
+      ? (left ? `${t.headline()} · ${left} match${left === 1 ? "" : "es"} left in the draw`
               : "Every match in the draw has been played")
       : `Up to ${state.courtCount} ${courtWord} / ${state.courtCount} pending ${matchWord} at a time`;
   }
@@ -1176,9 +1227,7 @@ function render() {
   const modeChip = document.getElementById("heroModeChip");
   if (modeChip) {
     modeChip.classList.toggle("hidden", !t);
-    if (t) modeChip.textContent = t.started()
-      ? `🏆 Tournament · Round ${t.currentRound()} of ${t.totalRounds()}`
-      : "🏆 Tournament · no draw yet";
+    if (t) modeChip.textContent = `🏆 ${t.headline()}`;
   }
   const settingsNote = document.getElementById("settingsModeNote");
   if (settingsNote) settingsNote.classList.toggle("hidden", !t);
@@ -1982,7 +2031,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "8.0";
+const APP_VERSION = "8.1";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;
@@ -1998,9 +2047,15 @@ function buildSessionSummary() {
     fixedPartners: fixedPairs().length ? fixedPairs().map(pairLabel) : "None",
     // A session that ran a tournament and then went back to open play is both,
     // and the record of the draw outlives the mode, so say so.
-    format: tournamentMode() ? "Round robin tournament"
-      : (window.Tournament && window.Tournament.summary()) ? "Round robin tournament, then open play"
-      : "Open play",
+    format: (() => {
+      const record = window.Tournament && window.Tournament.summary();
+      if (!record) return "Open play";
+      const plain = record.brackets.length === 1 && record.brackets[0].division === "All levels";
+      const named = plain ? "Round robin tournament"
+        : `Round robin tournament — ${record.brackets.map(b => b.division === "All levels"
+            ? `Court ${b.court}` : `Court ${b.court}: ${b.division}`).join(" · ")}`;
+      return tournamentMode() ? named : `${named}, then open play`;
+    })(),
     tournament: window.Tournament ? window.Tournament.summary() : null,
     courtLevels: courtRulesOn()
       ? Object.fromEntries(courtsInUse().map(c => [`court${c}`, courtRuleLabel(c)]))

@@ -1,4 +1,73 @@
-# BuenasxPickle v8.0 — Tournament Mode (Round Robin)
+# BuenasxPickle v8.1 — One Tournament Per Court
+
+## What changed in v8.1
+A tournament now runs **one bracket per court**. Court 1 can be the
+intermediate-to-advanced tournament while Court 2 is the beginners' — two separate
+competitions, side by side, each with its own teams, its own draw, its own standings
+and its own champion. The two never meet.
+
+### Divisions
+Each court gets a **division**, picked from the same rating bands the courts already
+use: All levels, Beginner (up to 2.9), Intermediate (3.0–3.9), Advanced (4.0 & up) or
+Intermediate–Advanced (3.0 & up). The edges are open-ended, so a 5.2 is still
+Advanced — a rating that drifts past the slider range never shuts a player out of
+their own division.
+
+Only players inside a court's band can be drawn into it, and **nobody is on two
+teams**: a player eligible for both bands belongs to whichever bracket takes them
+first. Eligibility is a draw-time question, so a rating that crosses a band edge
+mid-tournament changes nothing — the teams are already fixed.
+
+Changing a division once teams exist asks first, and names the teams that would have
+to go.
+
+### The builder
+The Tournament panel now opens on a **court tab** — Court 1 or Court 2, each showing
+its team count and division. Everything below acts on the court you are looking at:
+*Draw Court 2 automatically*, *Clear Court 2*, the two dropdowns, the team list. With
+one court selected in Match settings the tabs disappear and it reads as it did before.
+
+**Make the draw & start** builds every bracket at once. A court with one team is
+refused — a round robin needs at least two, or none.
+
+### Playing two at once
+**Start Next Match** fills each court from its own draw. A court with no bracket of
+its own is **spare**: it takes whichever bracket has the longest queue left, which is
+how a single tournament still runs across both courts — put every team on Court 1,
+leave Court 2 empty, and it behaves exactly as v8.0 did. When a fixture is played away
+from its own court, its card says so: `🏆 Round 2 of 3 (Court 1 draw)`.
+
+Court cards wear their bracket's division tag, and seeds are numbered **within a
+bracket**, so Court 2's teams are #1, #2, #3 in their own competition rather than #4
+onwards in somebody else's.
+
+### Two champions
+The standings panel shows **a table per court**, each headed with its court and
+division, and the draw below it is grouped the same way. Ranking is unchanged: wins,
+then point difference, then points scored, then the match the two teams played against
+each other.
+
+The player leaderboard — and so the Top 3 badges and the Top List — is ordered by
+**place within a bracket first**, and by court only to break that. Both champion teams
+lead the board, then both runners-up. There is no way for one Top-3 list to crown two
+champions properly, so the standings panel is where each bracket's own champion lives,
+and it says as much underneath.
+
+### In the spreadsheet
+The saved session carries one record per bracket. **Format** reads
+`Round robin tournament — Court 1: Intermediate–Advanced · 3.0 & up · Court 2:
+Beginner · Up to 2.9`, and **Champion** names both. A single all-levels bracket still
+reads plainly as `Round robin tournament`, as it did in v8.0.
+
+### Checked
+Court 1 intermediate-to-advanced and Court 2 beginners drawn and played out together:
+every match landed on its own court, the beginners stayed out of the advanced bracket
+and nobody appeared on two teams. The spare-court case verified with one bracket across
+both courts, including the `(Court 1 draw)` tag. A court with one team is refused and
+names that court. Sessions from v8.0 load with their teams and fixtures on Court 1; the
+one-division-per-tournament shape v8.1 briefly had migrates to Court 1's division. Open
+play re-checked unchanged, and one-court mode hides the tabs. Both themes at 1280px and
+375px, no horizontal overflow, no console errors.
 
 ## What changed in v8.0
 The app has a **second mode**. Open play is what it has always been: fair rotation picks who plays next and partners change every match. **Tournament mode** is the opposite — fixed teams of two, and a draw made before the first serve in which every team plays every other team once.

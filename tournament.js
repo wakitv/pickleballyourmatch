@@ -1,5 +1,5 @@
 /*
-  tournament.js — Tournament mode (round robin).
+  tournament.js — Tournament mode (round robin), one bracket per court.
 
   Open play asks "who has waited longest?" and builds a match out of whoever
   that is. A tournament asks nothing: the teams are fixed, the schedule is
@@ -8,6 +8,16 @@
   rotation, the game limit, court skill levels and fixed partners all stand
   down while it is on, because the draw has already decided everything they
   would have decided.
+
+  Each court runs its own bracket: its own division, its own teams, its own
+  draw and its own standings. That is how a club actually runs an afternoon --
+  Court 1 the intermediate-to-advanced tournament, Court 2 the beginners' --
+  and the two never meet, so there are two champions, not one.
+
+  A court with no bracket of its own is spare: whichever bracket needs a court
+  next may use it. With every team on Court 1 and Court 2 left empty, that is
+  one tournament across two courts, which is what a single-bracket draw was
+  before brackets existed.
 
   What stays exactly the same: the court cards, entering a score, the rating
   maths, history, the leaderboard and the badges. A tournament match is an
@@ -18,18 +28,58 @@
   after N-1 rounds everyone has met. With an odd number of teams one sits out
   each round -- that is the bye, and it is a real rest, not a walkover.
 
-  Nothing here is destructive on its own. Ending a tournament puts the mode
-  back to open play and keeps every result that was recorded.
+  Nothing here is destructive on its own. Leaving the mode keeps the draw.
 */
 (function () {
   const T = () => state.tournament;
   const on = () => state.mode === "tournament";
   const started = () => on() && T().started;
 
+  /* ---------- brackets ---------- */
+  // One bracket per court, identified by its court number. The division is
+  // what makes a bracket a competition rather than just a pile of teams: only
+  // players inside the band can be drawn into it.
+  const courts = () => courtsInUse();
+  const divisionFor = court => (T().divisions || {})[Number(court)] || "all";
+  const teamsOn = court => teams().filter(t => Number(t.court) === Number(court));
+  const fixturesOn = court => fixtures().filter(f => Number(f.court) === Number(court));
+  // Courts with a competition on them. A court with one team is an error the
+  // draw refuses; a court with none is spare.
+  const liveCourts = () => courts().filter(c => teamsOn(c).length >= 2);
+
+  // Who may still be drawn into this court's bracket: in its band, in the
+  // session, and not already on a team anywhere. A player belongs to one
+  // bracket only, even when two bands would both accept them.
+  const eligibleFor = court => activePlayers()
+    .filter(p => fitsDivision(p, divisionFor(court)) && !onATeam(p.id));
+
+  function setDivision(court, key) {
+    if (started()) return toast("The draw is already made. Scrap it first to change a division.");
+    court = Number(court);
+    if (!TOURNAMENT_DIVISIONS.some(d => d.key === key) || key === divisionFor(court)) return;
+    // Teams that no longer belong to the competition have to go, so the
+    // organiser is asked before the division moves rather than after.
+    const strays = teamsOn(court).filter(t => t.players.some(id => !fitsDivision(player(id) || {}, key)));
+    if (strays.length && !confirm(`${strays.length} team${strays.length === 1 ? "" : "s"} on Court ${court} `
+      + `(${strays.map(teamName).join(", ")}) fall outside ${divisionLabel(key)}.\n\n`
+      + `Switch the division and remove ${strays.length === 1 ? "it" : "them"}?`)) return;
+    T().divisions[court] = key;
+    T().teams = teams().filter(t => !strays.includes(t));
+    draft = { a: "", b: "" };
+    saveState();
+    const n = eligibleFor(court).length;
+    toast(`Court ${court}: ${divisionLabel(key)} — ${n} player${n === 1 ? "" : "s"} free to draw.`
+      + (strays.length ? ` ${strays.length} team${strays.length === 1 ? "" : "s"} removed.` : ""));
+  }
+
   /* ---------- teams ---------- */
   const teams = () => T().teams;
   const teamOf = id => teams().find(t => t.id === Number(id)) || null;
-  const seedOf = id => teams().findIndex(t => t.id === Number(id)) + 1;
+  // Seeds are per bracket, because a bracket is its own competition.
+  const seedOf = id => {
+    const t = teamOf(id);
+    return t ? teamsOn(t.court).indexOf(t) + 1 : 0;
+  };
   function teamName(t) {
     if (!t) return "—";
     const names = t.players.map(id => (player(id) || {}).name).filter(Boolean);
@@ -41,8 +91,9 @@
   // The combined rating of a team, which is all the auto-draw sorts by.
   const teamRating = t => t.players.reduce((s, id) => s + Number((player(id) || {}).rating || 3), 0);
 
-  function addTeam(aId, bId) {
+  function addTeam(court, aId, bId) {
     if (started()) return toast("The draw is already made. Scrap it first to change the teams.");
+    court = Number(court);
     const a = Number(aId), b = Number(bId);
     const pa = player(a), pb = player(b);
     if (!pa || !pb) return toast("Pick two players to make a team.");
@@ -50,10 +101,15 @@
     if (pa.active === false || pb.active === false) return toast("Both players must still be in the session.");
     if (onATeam(a)) return toast(`${pa.name} is already on ${teamName(teamOfPlayer(a))}.`);
     if (onATeam(b)) return toast(`${pb.name} is already on ${teamName(teamOfPlayer(b))}.`);
-    T().teams.push({ id: T().nextTeamId++, players: [a, b] });
+    const outside = [pa, pb].filter(p => !fitsDivision(p, divisionFor(court)));
+    if (outside.length) {
+      return toast(`${outside.map(p => `${p.name} (${ratingLabel(p.rating)})`).join(" and ")} `
+        + `${outside.length === 1 ? "is" : "are"} outside Court ${court}'s ${divisionLabel(divisionFor(court))}.`);
+    }
+    T().teams.push({ id: T().nextTeamId++, players: [a, b], court });
     draft = { a: "", b: "" };
     saveState();
-    toast(`Team ${teams().length}: ${pa.name} + ${pb.name}.`);
+    toast(`Court ${court}, team ${teamsOn(court).length}: ${pa.name} + ${pb.name}.`);
   }
 
   function removeTeam(id) {
@@ -65,41 +121,51 @@
     toast(`${teamName(t)} removed. Both players are free to be picked again.`);
   }
 
-  // Strongest with weakest, working inwards. It is the standard way to draw
-  // a social tournament: it does not make the teams equal (nothing does), but
-  // it stops the two best players ending up together, which is the one draw
-  // that makes the whole afternoon a formality.
-  function autoDraw() {
+  // Strongest with weakest, working inwards, inside one court's band. It is
+  // the standard way to draw a social tournament: it does not make the teams
+  // equal (nothing does), but it stops the two best players ending up
+  // together, which is the one draw that makes the whole afternoon a
+  // formality.
+  function autoDraw(court) {
     if (started()) return toast("The draw is already made. Scrap it first to change the teams.");
-    const pool = activePlayers().slice().sort((a, b) =>
+    court = Number(court);
+    const key = divisionFor(court);
+    const pool = eligibleFor(court).slice().sort((a, b) =>
       Number(b.rating) - Number(a.rating) || String(a.name).localeCompare(String(b.name)));
-    if (pool.length < 4) return toast("You need at least 4 players to draw two teams.");
+    if (pool.length < 4) {
+      return toast(`Only ${pool.length} player${pool.length === 1 ? "" : "s"} free for Court ${court}`
+        + (key === "all" ? "" : ` in ${divisionLabel(key)}`) + " — 4 needed for two teams.");
+    }
 
     const made = [];
     while (pool.length >= 2) made.push([pool.shift().id, pool.pop().id]);
     const spare = pool.length ? pool[0] : null;   // odd player out
 
-    T().teams = made.map(players => ({ id: T().nextTeamId++, players }));
+    // Only this court's teams are replaced; the other bracket is untouched.
+    T().teams = teams().filter(t => Number(t.court) !== court)
+      .concat(made.map(players => ({ id: T().nextTeamId++, players, court })));
     draft = { a: "", b: "" };
     saveState();
-    toast(`${made.length} teams drawn, strongest with weakest.`
+    toast(`Court ${court}: ${made.length} teams drawn`
+      + (key === "all" ? "" : ` for ${divisionLabel(key)}`) + ", strongest with weakest."
       + (spare ? ` ${spare.name} is not on a team — add a player or pair them by hand.` : ""));
   }
 
-  function clearTeams() {
-    if (started()) return toast("End the tournament first.");
-    if (!teams().length) return;
-    if (!confirm("Clear every team and start the draw again?")) return;
-    T().teams = [];
+  function clearTeams(court) {
+    if (started()) return toast("Scrap the draw first.");
+    court = Number(court);
+    if (!teamsOn(court).length) return;
+    if (!confirm(`Clear Court ${court}'s teams and draw them again?`)) return;
+    T().teams = teams().filter(t => Number(t.court) !== court);
     saveState();
-    toast("Teams cleared.");
+    toast(`Court ${court}'s teams cleared.`);
   }
 
   /* ---------- the draw ---------- */
   // Circle method. One team is pinned and the rest rotate around it, so after
   // N-1 rounds every pair has met exactly once. An odd count gets a phantom
   // team (0) whose opponent each round simply rests.
-  function buildSchedule(ids) {
+  function buildSchedule(ids, court, div) {
     const list = ids.slice();
     if (list.length % 2) list.push(0);
     const n = list.length;
@@ -113,7 +179,7 @@
         // alternate rounds spreads it: no team ends up more than one match
         // out of balance between Team A and Team B.
         const [home, away] = (i === 0 && r % 2) ? [y, x] : [x, y];
-        out.push({ id: T().nextFixtureId++, round: r + 1, a: home, b: away });
+        out.push({ id: T().nextFixtureId++, round: r + 1, a: home, b: away, court, div });
       }
       list.splice(1, 0, list.pop());                  // rotate all but the first
     }
@@ -122,18 +188,28 @@
 
   function start() {
     if (started()) return;
-    if (teams().length < 2) return toast("A round robin needs at least 2 teams.");
-    const missing = teams().filter(t => t.players.some(id => !player(id)));
-    if (missing.length) return toast("A team has a player who is no longer in the session. Fix the teams first.");
+    const lonely = courts().filter(c => teamsOn(c).length === 1);
+    if (lonely.length) {
+      return toast(lonely.length === 1
+        ? `Court ${lonely[0]} has one team. A round robin needs at least two, or remove it.`
+        : `Courts ${lonely.join(" and ")} have one team each. A round robin needs at least two on a court, or remove them.`);
+    }
+    const live = liveCourts();
+    if (!live.length) return toast("A round robin needs at least 2 teams on a court.");
+    if (teams().some(t => t.players.some(id => !player(id)))) {
+      return toast("A team has a player who is no longer in the session. Fix the teams first.");
+    }
 
-    T().fixtures = buildSchedule(teams().map(t => t.id));
+    T().fixtures = live.flatMap(c =>
+      buildSchedule(teamsOn(c).map(t => t.id), c, divisionFor(c)));
     T().started = true;
     T().startedAt = new Date().toISOString();
     saveState();
-    const rounds = Math.max(...T().fixtures.map(f => f.round));
-    const n = T().fixtures.length;
-    toast(`Draw made: ${teams().length} teams, ${rounds} round${rounds === 1 ? "" : "s"}, `
-      + `${n} match${n === 1 ? "" : "es"}. Press Start Next Match.`);
+    const parts = live.map(c => {
+      const n = fixturesOn(c).length;
+      return `Court ${c}: ${teamsOn(c).length} teams, ${n} match${n === 1 ? "" : "es"}`;
+    });
+    toast(`Draw made — ${parts.join(" · ")}. Press Start Next Match.`);
   }
 
   // Leaving the mode changes nothing but the mode. The teams, the draw and
@@ -174,13 +250,15 @@
   const fixture = id => fixtures().find(f => f.id === Number(id)) || null;
   const roundFor = f => state.rounds.find(r => Number(r.fixtureId) === f.id) || null;
   const played = f => { const r = roundFor(f); return !!r && r.status === "completed"; };
-  const live = f => { const r = roundFor(f); return !!r && r.status === "pending"; };
   const remaining = () => fixtures().filter(f => !roundFor(f));
-  const totalRounds = () => (fixtures().length ? Math.max(...fixtures().map(f => f.round)) : 0);
-  // The round being played: the earliest one with a match still to finish.
-  function currentRound() {
-    const open = fixtures().filter(f => !played(f));
-    return open.length ? Math.min(...open.map(f => f.round)) : totalRounds();
+  const roundsOn = court => {
+    const list = fixturesOn(court);
+    return list.length ? Math.max(...list.map(f => f.round)) : 0;
+  };
+  // The round being played on a court: the earliest with a match unfinished.
+  function currentRoundOn(court) {
+    const open = fixturesOn(court).filter(f => !played(f));
+    return open.length ? Math.min(...open.map(f => f.round)) : roundsOn(court);
   }
 
   // The teams on a court right now; they cannot be drawn into a second match.
@@ -194,11 +272,11 @@
   }
 
   // Tournament mode's answer to Generate Matches: take the next fixtures off
-  // the schedule rather than picking players out of a queue. Matches are put
-  // up in schedule order, except that a team already on court is skipped so
-  // two courts can run at once.
+  // the schedule rather than picking players out of a queue. A court plays its
+  // own bracket. A court with no bracket of its own is spare, and takes
+  // whichever bracket has the longest queue left to get through.
   function fill(silent) {
-    if (!started()) return toast("Draw the teams and press Start tournament first.");
+    if (!started()) return toast("Draw the teams and press Make the draw first.");
     const pending = state.rounds.filter(r => r.status === "pending");
     const maxPending = state.courtCount === 1 ? 1 : 2;
     if (pending.length >= maxPending) {
@@ -206,8 +284,7 @@
         ? "Court 1 is in play. Enter its score to move on."
         : "Both courts are in play. Enter a score to move on.");
     }
-    const left = remaining();
-    if (!left.length) {
+    if (!remaining().length) {
       return toast(fixtures().length
         ? "Every match in the draw has been played. The standings are final."
         : "No draw yet.");
@@ -216,11 +293,25 @@
     const busy = busyTeams();
     const taken = new Set();
     const occupied = new Set(pending.map(r => Number(r.court) || 1));
-    const free = courtsInUse().filter(c => !occupied.has(c));
+    const free = courts().filter(c => !occupied.has(c));
     const created = [];
+    const nextFor = list => list.find(f =>
+      !roundFor(f) && !taken.has(f.id) && !busy.has(f.a) && !busy.has(f.b));
 
     free.forEach(court => {
-      const next = left.find(f => !taken.has(f.id) && !busy.has(f.a) && !busy.has(f.b));
+      // Its own bracket first; failing that, the busiest bracket that still
+      // has a fixture whose teams are free.
+      let next = nextFor(fixturesOn(court));
+      if (!next) {
+        const byQueue = liveCourts()
+          .filter(c => c !== court)
+          .sort((x, y) => fixturesOn(y).filter(f => !roundFor(f)).length
+            - fixturesOn(x).filter(f => !roundFor(f)).length || x - y);
+        for (const other of byQueue) {
+          next = nextFor(fixturesOn(other));
+          if (next) break;
+        }
+      }
       if (!next) return;
       taken.add(next.id);
       busy.add(next.a); busy.add(next.b);
@@ -234,8 +325,8 @@
     }
     saveState();
     if (!silent) {
-      const text = created.map(c => `Court ${c.round.court}: ${teamName(teamOf(c.fixture.a))} vs ${teamName(teamOf(c.fixture.b))}`).join(" · ");
-      toast(`Round ${created[0].fixture.round} — ${text}`);
+      toast(created.map(c => `Court ${c.round.court} · Round ${c.fixture.round}: `
+        + `${teamName(teamOf(c.fixture.a))} vs ${teamName(teamOf(c.fixture.b))}`).join(" — "));
     }
   }
 
@@ -281,8 +372,10 @@
     return winner === x ? -1 : 1;
   }
 
-  function standings() {
-    const rows = teams().map((t, i) => ({
+  // One table per bracket. A court's table only counts matches between its own
+  // teams, which is every match it has, since brackets never meet.
+  function standingsOn(court) {
+    const rows = teamsOn(court).map((t, i) => ({
       team: t, seed: i + 1, played: 0, wins: 0, losses: 0, pf: 0, pa: 0, diff: 0
     }));
     const by = new Map(rows.map(r => [r.team.id, r]));
@@ -310,18 +403,23 @@
   // The leaderboard's order while a tournament is on. The podium has to be the
   // tournament's podium: a table on the same screen saying one team won while
   // the badges went to somebody from mid-table would be the app contradicting
-  // itself. Inside a team the two players are level on the thing being ranked,
-  // so their own point difference separates them.
+  // itself. With two brackets there are two champions, so the board is ordered
+  // by place within a bracket first and by court only to break that -- the
+  // champions lead it, then the runners-up. Inside a team the two players are
+  // level on the thing being ranked, so their own point difference separates
+  // them.
   function playerOrder(list, diff) {
     const place = new Map();
-    standings().forEach((row, i) => row.team.players.forEach(id => place.set(Number(id), i)));
+    liveCourts().forEach(c => standingsOn(c).forEach((row, i) =>
+      row.team.players.forEach(id => place.set(Number(id), { place: i, court: c }))));
+    const at = p => place.get(Number(p.id));
     return [...list].sort((a, b) => {
       const aPlayed = (Number(a.games) || 0) > 0, bPlayed = (Number(b.games) || 0) > 0;
       if (aPlayed !== bPlayed) return aPlayed ? -1 : 1;          // unplayed last, as in open play
-      const pa = place.has(Number(a.id)), pb = place.has(Number(b.id));
-      if (pa !== pb) return pa ? -1 : 1;                         // not on a team: below everyone on one
-      if (pa && place.get(Number(a.id)) !== place.get(Number(b.id))) {
-        return place.get(Number(a.id)) - place.get(Number(b.id));
+      const pa = at(a), pb = at(b);
+      if (!pa !== !pb) return pa ? -1 : 1;                       // not on a team: below everyone on one
+      if (pa && pb && (pa.place !== pb.place || pa.court !== pb.court)) {
+        return pa.place - pb.place || pa.court - pb.court;
       }
       return (diff[b.id] || 0) - (diff[a.id] || 0) || b.wins - a.wins ||
         String(a.name).localeCompare(String(b.name));
@@ -329,34 +427,75 @@
   }
 
   /* ---------- what the rest of the app asks for ---------- */
-  // The tag on a tournament court card, and the team labels in place of
-  // "Team A" / "Team B".
+  // The tags on a tournament court card: the bracket it belongs to, and where
+  // the fixture sits in that bracket's draw.
   function cardTags(r) {
     const f = fixture(r.fixtureId);
     if (!f) return "";
-    return `<span class="t-round-tag">🏆 Round ${f.round} of ${totalRounds()}</span>`;
+    const d = divisionOf(f.div);
+    const court = Number(f.court) || 1;
+    const elsewhere = court !== (Number(r.court) || 1) ? ` (Court ${court} draw)` : "";
+    return (d.key === "all" ? "" : `<span class="t-round-tag t-div-tag">🏅 ${esc(d.label)}</span>`)
+      + `<span class="t-round-tag">🏆 Round ${f.round} of ${roundsOn(court)}${esc(elsewhere)}</span>`;
   }
   function sideLabel(r, side) {
     const f = fixture(r.fixtureId);
     if (!f) return side === "A" ? "Team A" : "Team B";
-    return `#${seedOf(side === "A" ? f.a : f.b)} ${teamName(teamOf(side === "A" ? f.a : f.b))}`;
+    const id = side === "A" ? f.a : f.b;
+    return `#${seedOf(id)} ${teamName(teamOf(id))}`;
+  }
+
+  // What the hero chip and the Active Matches subtitle say. One bracket reads
+  // as a tournament; two read as two.
+  function headline() {
+    if (!started()) {
+      const n = teams().length;
+      return n ? `Tournament · ${n} team${n === 1 ? "" : "s"} drawn, no schedule yet` : "Tournament · no draw yet";
+    }
+    const live = liveCourts();
+    if (live.length === 1) {
+      const c = live[0];
+      const d = divisionOf(divisionFor(c));
+      return `${d.key === "all" ? "Tournament" : d.label} · Round ${currentRoundOn(c)} of ${roundsOn(c)}`;
+    }
+    return live.map(c => {
+      const d = divisionOf(divisionFor(c));
+      return `C${c} ${d.key === "all" ? "open" : d.label} ${currentRoundOn(c)}/${roundsOn(c)}`;
+    }).join(" · ");
   }
 
   // Goes into the spreadsheet with the session, so a saved tournament is
-  // readable without the app.
+  // readable without the app. One entry per bracket, each with its own
+  // champion, because each is its own competition.
   function summary() {
     if (!fixtures().length) return null;
-    const table = standings();
+    const drawn = [...new Set(fixtures().map(f => Number(f.court) || 1))].sort((a, b) => a - b);
+    const brackets = drawn.map(c => {
+      const table = standingsOn(c);
+      const list = fixturesOn(c);
+      return {
+        court: c,
+        division: divisionLabel(list.length ? list[0].div : divisionFor(c)),
+        teams: teamsOn(c).length,
+        rounds: roundsOn(c),
+        matches: list.length,
+        played: list.filter(played).length,
+        champion: table.length && table[0].played ? teamName(table[0].team) : "",
+        standings: table.map((r, i) => ({
+          place: i + 1, team: teamName(r.team), played: r.played, wins: r.wins,
+          losses: r.losses, pointsFor: r.pf, pointsAgainst: r.pa, diff: r.diff
+        }))
+      };
+    });
     return {
+      brackets,
+      // Flat fields so a one-bracket tournament reads the way it always did.
+      division: brackets.map(b => `Court ${b.court}: ${b.division}`).join(" · "),
+      champion: brackets.filter(b => b.champion)
+        .map(b => brackets.length > 1 ? `${b.division}: ${b.champion}` : b.champion).join(" · "),
       teams: teams().length,
-      rounds: totalRounds(),
       matches: fixtures().length,
-      played: fixtures().filter(played).length,
-      champion: table.length && table[0].played ? teamName(table[0].team) : "",
-      standings: table.map((r, i) => ({
-        place: i + 1, team: teamName(r.team), played: r.played, wins: r.wins,
-        losses: r.losses, pointsFor: r.pf, pointsAgainst: r.pa, diff: r.diff
-      }))
+      played: fixtures().filter(played).length
     };
   }
 
@@ -367,38 +506,51 @@
     panel.classList.toggle("hidden", !started());
     if (!started()) return;
 
+    const live = liveCourts();
     const sub = document.getElementById("tournamentSubtitle");
     const left = remaining().length;
     if (sub) {
-      sub.textContent = left
-        ? `Round ${currentRound()} of ${totalRounds()} · ${left} match${left === 1 ? "" : "es"} to play`
-        : `Complete · ${fixtures().length} matches played`;
+      sub.textContent = (live.length > 1 ? `${live.length} brackets · ` : "")
+        + (left ? `${left} match${left === 1 ? "" : "es"} to play` : `Complete · ${fixtures().length} played`);
     }
 
-    const table = standings();
-    const anyPlayed = table.some(r => r.played);
-    document.getElementById("standings").innerHTML = `
-      <div class="rank-row rank-head t-row">
-        <div>#</div><div>Team</div><div class="lb-cell optional">P</div><div class="lb-cell">W</div>
-        <div class="lb-cell optional">L</div><div class="lb-cell optional">Pts</div><div class="lb-cell">Diff</div>
-      </div>
-      ${table.map((r, i) => {
-        const place = r.played ? (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) : "–";
-        const d = r.diff > 0 ? `+${r.diff}` : String(r.diff);
-        return `<div class="rank-row t-row${i === 0 && anyPlayed && !left ? " t-champion" : ""}">
-          <div class="rank">${place}</div>
-          <div>
-            <div class="lb-name">${esc(teamName(r.team))}</div>
-            <div class="lb-muted">Seed ${r.seed}${r.played ? ` · ${r.pf}–${r.pa} points` : " · not played yet"}</div>
+    document.getElementById("standings").innerHTML = live.map(c => {
+      const table = standingsOn(c);
+      const d = divisionOf(divisionFor(c));
+      const courtLeft = fixturesOn(c).filter(f => !roundFor(f)).length;
+      const done = !courtLeft;
+      return `
+        <div class="t-bracket">
+          <div class="t-bracket-head">
+            <b>Court ${c}</b>
+            <span class="t-bracket-div">${d.key === "all" ? "All levels" : esc(divisionLabel(d.key))}</span>
+            <em>${done ? "Final" : `Round ${currentRoundOn(c)} of ${roundsOn(c)}`}</em>
           </div>
-          <div class="lb-cell optional">${r.played}</div>
-          <div class="lb-cell"><b>${r.wins}</b></div>
-          <div class="lb-cell optional">${r.losses}</div>
-          <div class="lb-cell optional">${r.pf}</div>
-          <div class="lb-cell rating">${r.played ? d : "–"}</div>
+          <div class="rank-row rank-head t-row">
+            <div>#</div><div>Team</div><div class="lb-cell optional">P</div><div class="lb-cell">W</div>
+            <div class="lb-cell optional">L</div><div class="lb-cell optional">Pts</div><div class="lb-cell">Diff</div>
+          </div>
+          ${table.map((r, i) => {
+            const place = r.played ? (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) : "–";
+            const dd = r.diff > 0 ? `+${r.diff}` : String(r.diff);
+            return `<div class="rank-row t-row${i === 0 && r.played && done ? " t-champion" : ""}">
+              <div class="rank">${place}</div>
+              <div>
+                <div class="lb-name">${esc(teamName(r.team))}</div>
+                <div class="lb-muted">Seed ${r.seed}${r.played ? ` · ${r.pf}–${r.pa} points` : " · not played yet"}</div>
+              </div>
+              <div class="lb-cell optional">${r.played}</div>
+              <div class="lb-cell"><b>${r.wins}</b></div>
+              <div class="lb-cell optional">${r.losses}</div>
+              <div class="lb-cell optional">${r.pf}</div>
+              <div class="lb-cell rating">${r.played ? dd : "–"}</div>
+            </div>`;
+          }).join("")}
         </div>`;
-      }).join("")}
-      <div class="lb-note">Ranked by <b>wins</b>, then point difference, then points scored. Two teams level on all three are split by the match they played against each other.</div>`;
+    }).join("")
+      + `<div class="lb-note">Ranked by <b>wins</b>, then point difference, then points scored. Two teams level on all three are split by the match they played against each other.`
+      + (live.length > 1 ? ` Each court is its own tournament with its own champion — the two never meet.` : "")
+      + `</div>`;
 
     renderSchedule();
   }
@@ -406,24 +558,34 @@
   function renderSchedule() {
     const el = document.getElementById("tSchedule");
     if (!el) return;
-    const byRound = {};
-    fixtures().forEach(f => { (byRound[f.round] = byRound[f.round] || []).push(f); });
-    const now = currentRound();
-    el.innerHTML = Object.keys(byRound).map(Number).sort((a, b) => a - b).map(n => {
-      const resting = restingTeam(byRound[n]);
-      return `<div class="t-round${n === now ? " is-now" : ""}">
-        <div class="t-round-head">Round ${n}${n === now && remaining().length ? " · now" : ""}</div>
-        ${byRound[n].map(fixtureLine).join("")}
-        ${resting ? `<div class="t-bye">${esc(teamName(resting))} rests this round</div>` : ""}
+    el.innerHTML = liveCourts().map(court => {
+      const byRound = {};
+      fixturesOn(court).forEach(f => { (byRound[f.round] = byRound[f.round] || []).push(f); });
+      const now = currentRoundOn(court);
+      const anyLeft = fixturesOn(court).some(f => !roundFor(f));
+      const d = divisionOf(divisionFor(court));
+      return `<div class="t-draw-group">
+        <div class="t-draw-title">Court ${court}${d.key === "all" ? "" : ` · ${esc(d.label)}`}</div>
+        <div class="t-schedule-grid">
+          ${Object.keys(byRound).map(Number).sort((a, b) => a - b).map(n => {
+            const resting = restingTeam(court, byRound[n]);
+            return `<div class="t-round${n === now && anyLeft ? " is-now" : ""}">
+              <div class="t-round-head">Round ${n}${n === now && anyLeft ? " · now" : ""}</div>
+              ${byRound[n].map(fixtureLine).join("")}
+              ${resting ? `<div class="t-bye">${esc(teamName(resting))} rests this round</div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
       </div>`;
     }).join("");
   }
 
-  // With an odd number of teams exactly one is left out of each round.
-  function restingTeam(list) {
-    if (teams().length % 2 === 0) return null;
+  // With an odd number of teams in a bracket, exactly one is left out of each
+  // of its rounds.
+  function restingTeam(court, list) {
+    if (teamsOn(court).length % 2 === 0) return null;
     const playing = new Set(list.flatMap(f => [f.a, f.b]));
-    return teams().find(t => !playing.has(t.id)) || null;
+    return teamsOn(court).find(t => !playing.has(t.id)) || null;
   }
 
   function fixtureLine(f) {
@@ -434,12 +596,53 @@
       ? `<b>${r.scoreA}–${r.scoreB}</b>`
       : r ? `<em>on court ${r.court}</em>` : `<em>to play</em>`;
     const winner = done ? (r.winner === "A" ? f.a : f.b) : 0;
-    const side = (id) => `<span class="${winner === id ? "t-win" : ""}">${esc(teamName(teamOf(id)))}</span>`;
+    const side = id => `<span class="${winner === id ? "t-win" : ""}">${esc(teamName(teamOf(id)))}</span>`;
     return `<div class="t-fixture ${cls}">${side(f.a)}<span class="t-vs">vs</span>${side(f.b)}<span class="t-score">${score}</span></div>`;
   }
 
   /* ---------- the Tournament modal ---------- */
   let draft = { a: "", b: "" };
+  let editing = 1;                         // the court whose bracket is being built
+
+  function renderCourtTabs() {
+    const box = document.getElementById("tCourtTabs");
+    if (!box) return;
+    const list = courts();
+    if (!list.includes(editing)) editing = list[0];
+    box.classList.toggle("hidden", list.length < 2);
+    box.innerHTML = list.map(c => {
+      const n = teamsOn(c).length;
+      const d = divisionOf(divisionFor(c));
+      const picked = c === editing;
+      return `<button type="button" data-court-tab="${c}" class="${picked ? "selected" : ""}"
+        aria-pressed="${picked}"${!on() ? " disabled" : ""}>Court ${c}
+        <em>${n} team${n === 1 ? "" : "s"}${d.key === "all" ? "" : ` · ${esc(d.label)}`}</em></button>`;
+    }).join("");
+  }
+
+  function renderDivisions() {
+    const box = document.getElementById("tDivisions");
+    if (!box) return;
+    box.innerHTML = TOURNAMENT_DIVISIONS.map(d => {
+      const n = activePlayers().filter(p => fitsDivision(p, d.key)).length;
+      const picked = d.key === divisionFor(editing);
+      return `<button type="button" data-division="${d.key}" class="${picked ? "selected" : ""}"
+        aria-pressed="${picked}"${!on() || started() ? " disabled" : ""}
+        title="${esc(divisionLabel(d.key))}">${esc(d.label)} <em>${n}</em></button>`;
+    }).join("");
+    const label = document.getElementById("tDivisionLabel");
+    if (label) label.textContent = courts().length > 1 ? `🏅 Court ${editing} division` : "🏅 Division";
+    const note = document.getElementById("tDivisionNote");
+    if (!note) return;
+    const key = divisionFor(editing);
+    const free = eligibleFor(editing).length;
+    note.textContent = started()
+      ? `Court ${editing} is running as ${divisionLabel(key)}. Scrap the draw to change it.`
+      : key === "all"
+        ? `Any player can be drawn into Court ${editing}. Pick a band to run a beginners' or an intermediate-to-advanced tournament on this court`
+          + (courts().length > 1 ? ` and another band on the other.` : `.`)
+        : `${free} player${free === 1 ? "" : "s"} free to draw into Court ${editing}'s ${divisionLabel(key)}.`;
+  }
 
   function renderModal() {
     const sw = document.getElementById("tModeToggle");
@@ -451,6 +654,8 @@
       ? "Fixed teams play a full round robin. Rotation, game limit, court levels and fixed partners are paused."
       : "Open play: fair rotation picks who plays next, and partners change every match.";
 
+    renderCourtTabs();
+    renderDivisions();
     const body = document.getElementById("tBody");
     body.classList.toggle("is-off", !on());
     document.getElementById("tDrawBox").classList.toggle("hidden", started());
@@ -458,17 +663,18 @@
 
     if (started()) {
       const left = remaining().length;
-      document.getElementById("tLiveNote").textContent =
-        `${teams().length} teams · ${totalRounds()} rounds · ${fixtures().length} matches, `
-        + (left ? `${left} still to play.` : "all played.");
+      document.getElementById("tLiveNote").textContent = liveCourts().map(c => {
+        const d = divisionOf(divisionFor(c));
+        return `Court ${c} (${d.key === "all" ? "all levels" : d.label}): `
+          + `${teamsOn(c).length} teams, ${roundsOn(c)} rounds, ${fixturesOn(c).length} matches`;
+      }).join(" · ") + (left ? ` — ${left} still to play.` : " — all played.");
       document.getElementById("tEndBtn").textContent = left ? "Scrap the draw" : "Scrap the draw & re-draw";
       return;
     }
 
     const selA = document.getElementById("tPlayerA");
     const selB = document.getElementById("tPlayerB");
-    const free = activePlayers().filter(p => !onATeam(p.id))
-      .sort((x, y) => String(x.name).localeCompare(String(y.name)));
+    const free = eligibleFor(editing).sort((x, y) => String(x.name).localeCompare(String(y.name)));
     const options = skip => `<option value="">Choose a player…</option>` + free
       .filter(p => String(p.id) !== String(skip))
       .map(p => `<option value="${p.id}">${esc(p.name)} — ${ratingLabel(p.rating)}</option>`).join("");
@@ -480,13 +686,19 @@
     const tooFew = free.length < 2;
     selA.disabled = selB.disabled = tooFew || !on();
     document.getElementById("tAddBtn").disabled = tooFew || !draft.a || !draft.b || !on();
-    document.getElementById("tAutoBtn").disabled = !on() || activePlayers().length < 4;
-    document.getElementById("tStartBtn").disabled = !on() || teams().length < 2;
-    document.getElementById("tClearBtn").disabled = !on() || !teams().length;
+    document.getElementById("tAutoBtn").disabled = !on() || free.length < 4;
+    document.getElementById("tStartBtn").disabled = !on() || !liveCourts().length
+      || courts().some(c => teamsOn(c).length === 1);
+    document.getElementById("tClearBtn").disabled = !on() || !teamsOn(editing).length;
+    document.getElementById("tAutoBtn").textContent = courts().length > 1
+      ? `Draw Court ${editing} automatically` : "Draw teams automatically";
+    document.getElementById("tClearBtn").textContent = courts().length > 1
+      ? `Clear Court ${editing}` : "Clear teams";
 
+    const mine = teamsOn(editing);
     const list = document.getElementById("tTeamList");
-    list.innerHTML = teams().length
-      ? teams().map((t, i) => `
+    list.innerHTML = mine.length
+      ? mine.map((t, i) => `
         <div class="pair-item">
           <div class="pair-names">
             <b>#${i + 1} ${esc(teamName(t))}</b>
@@ -494,16 +706,22 @@
           </div>
           <button type="button" class="pair-unlink" data-drop-team="${t.id}" aria-label="Remove team">Remove</button>
         </div>`).join("")
-      : `<div class="pair-empty">No teams yet. Draw them automatically, or pick two players and add them.</div>`;
+      : `<div class="pair-empty">No teams on Court ${editing} yet. Draw them automatically, or pick two players and add them.</div>`;
 
-    const n = teams().length;
+    const n = mine.length;
     const rounds = n < 2 ? 0 : (n % 2 ? n : n - 1);
     const matches = n < 2 ? 0 : (n * (n - 1)) / 2;
-    document.getElementById("tDrawNote").textContent = n < 2
-      ? "A round robin needs at least 2 teams. Every team plays every other team once."
-      : `${n} teams → ${rounds} rounds, ${matches} matches.`
-        + (n % 2 ? " With an odd number of teams, one team rests each round." : "")
-        + ` ${free.length} player${free.length === 1 ? "" : "s"} not on a team.`;
+    const spare = `${free.length} player${free.length === 1 ? "" : "s"} free to draw.`;
+    const others = courts().filter(c => c !== editing && teamsOn(c).length >= 2)
+      .map(c => `Court ${c} has ${teamsOn(c).length} teams.`).join(" ");
+    document.getElementById("tDrawNote").textContent = (n === 1
+      ? `Court ${editing} has one team. A round robin needs at least two, or remove it. `
+      : n < 2
+        ? `A round robin needs at least 2 teams on this court. Every team plays every other team once. `
+        : `Court ${editing}: ${n} teams → ${rounds} round${rounds === 1 ? "" : "s"}, `
+          + `${matches} match${matches === 1 ? "" : "es"}.`
+          + (n % 2 ? " With an odd number of teams, one team rests each round." : "") + " ")
+      + spare + (others ? " " + others : "");
   }
 
   function paint() { renderModal(); renderPanel(); }
@@ -513,9 +731,9 @@
     const sw = document.getElementById("tModeToggle");
     if (!sw) return;
     sw.addEventListener("click", () => setMode(!on()));
-    document.getElementById("tAddBtn").addEventListener("click", () => addTeam(draft.a, draft.b));
-    document.getElementById("tAutoBtn").addEventListener("click", autoDraw);
-    document.getElementById("tClearBtn").addEventListener("click", clearTeams);
+    document.getElementById("tAddBtn").addEventListener("click", () => addTeam(editing, draft.a, draft.b));
+    document.getElementById("tAutoBtn").addEventListener("click", () => autoDraw(editing));
+    document.getElementById("tClearBtn").addEventListener("click", () => clearTeams(editing));
     document.getElementById("tStartBtn").addEventListener("click", start);
     document.getElementById("tEndBtn").addEventListener("click", resetDraw);
     ["tPlayerA", "tPlayerB"].forEach(id => {
@@ -523,6 +741,17 @@
         draft[id === "tPlayerA" ? "a" : "b"] = e.target.value;
         renderModal();
       });
+    });
+    document.getElementById("tCourtTabs").addEventListener("click", e => {
+      const btn = e.target.closest("[data-court-tab]");
+      if (!btn || btn.disabled) return;
+      editing = Number(btn.dataset.courtTab);
+      draft = { a: "", b: "" };
+      renderModal();
+    });
+    document.getElementById("tDivisions").addEventListener("click", e => {
+      const btn = e.target.closest("[data-division]");
+      if (btn && !btn.disabled) setDivision(editing, btn.dataset.division);
     });
     document.getElementById("tTeamList").addEventListener("click", e => {
       const btn = e.target.closest("[data-drop-team]");
@@ -532,9 +761,10 @@
 
   wire();
   window.Tournament = {
-    on, started, fill, render: paint, standings, playerOrder, summary,
-    setMode, resetDraw,
-    cardTags, sideLabel, totalRounds, currentRound,
+    on, started, fill, render: paint, playerOrder, summary,
+    setMode, resetDraw, setDivision, autoDraw, addTeam, start,
+    standingsOn, liveCourts, divisionFor, headline,
+    cardTags, sideLabel,
     remaining: () => remaining().length
   };
   // app.js renders the page once at the end of its own file, before this

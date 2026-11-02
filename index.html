@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0c0906">
-  <link rel="icon" href="icon.webp?v=8.0">
+  <link rel="icon" href="icon.webp?v=8.1">
   <title>BuenasxPickle — Find your match. Play · Connect · Repeat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,13 +17,13 @@
         : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     } catch (e) { document.documentElement.dataset.theme = "dark"; }
   </script>
-  <link rel="stylesheet" href="style.css?v=8.0">
+  <link rel="stylesheet" href="style.css?v=8.1">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark"><img src="logo.webp?v=8.0" alt="" width="46" height="46"></div>
+        <div class="brand-mark"><img src="logo.webp?v=8.1" alt="" width="46" height="46"></div>
         <div>
           <h1>Buenas<b>xPickle</b></h1>
           <p>Find your match. Play · Connect · Repeat</p>
@@ -183,7 +183,7 @@
         <div class="modal-card modal-card-lg">
           <button class="modal-close" type="button" aria-label="Close">×</button>
           <div class="panel-title">
-            <div><span class="icon">🏆</span><div><h3 id="tTitle">Tournament</h3><small>Fixed teams, every team plays every other team once</small></div></div>
+            <div><span class="icon">🏆</span><div><h3 id="tTitle">Tournament</h3><small>Fixed teams, every team plays every other team once. Each court runs its own bracket.</small></div></div>
           </div>
 
           <div class="setting setting-featured setting-wide">
@@ -195,6 +195,14 @@
               </div>
               <button type="button" class="level-switch" id="tModeToggle" role="switch" aria-checked="false" aria-label="Tournament mode"><span></span></button>
             </div>
+          </div>
+
+          <div class="t-court-tabs" id="tCourtTabs"></div>
+
+          <div class="setting setting-wide t-division-box">
+            <span id="tDivisionLabel">🏅 Division</span>
+            <div class="limit-presets t-divisions" id="tDivisions"></div>
+            <small id="tDivisionNote"></small>
           </div>
 
           <div id="tBody" class="t-body">
@@ -216,7 +224,7 @@
 
             <div id="tLiveBox" class="hidden">
               <p id="tLiveNote" class="t-note"></p>
-              <p class="t-note">The draw and the standings are on the main page. Press <b>Start Next Match</b> there to put the next fixture on a court.</p>
+              <p class="t-note">The draws and the standings are on the main page. Press <b>Start Next Match</b> there to put the next fixture on each court.</p>
               <p class="t-note">Switching the toggle off goes back to open play and keeps the draw, so you can pick the tournament up again later. Scrapping it is how you re-draw.</p>
               <button type="button" class="btn btn-ghost t-end" id="tEndBtn">Scrap the draw</button>
             </div>
@@ -271,7 +279,7 @@
             <article><b>7. PDDR Doubles Rating</b><p>BuenasxPickle uses its own 2.00–8.00 Dynamic Doubles Rating. It considers team strength, expected result, score performance, match margin and experience. First 5 games are provisional. It is not an official DUPR rating.</p></article>
             <article><b>8. Games per Player</b><p>In Match Settings you can cap how many games each player gets, e.g. 5 games each. Once a player reaches the limit they are marked Done and left out of new matches. When fewer than 4 players still have games left, the session is finished. If players × games is not divisible by 4, a few players may end one game short.</p></article>
             <article><b>9. Court Skill Levels</b><p>Each court can be reserved for a rating band — for example Court 1 for beginners (up to 2.9) and Court 2 for 3.0 and up. Generate Matches then only picks players whose rating fits that court, and a CHANGE substitute must fit it too. Fair rotation still applies inside each band: among the players a court accepts, the one with the fewest games goes on next. A match already in play is never changed when you edit a level. Turn it off to go back to any player on any court.</p></article>
-            <article><b>11. Tournament Mode</b><p>A round robin for fixed teams of two, turned on in Tournament. Draw the teams automatically (strongest with weakest) or pick them yourself, then make the draw: every team plays every other team once, over as many rounds as there are teams minus one. With an odd number of teams one rests each round. Start Next Match takes the next fixture off the draw instead of picking players out of the queue, so fair rotation, the game limit, court levels and fixed partners are all paused while it runs — the draw has decided them. Standings are ranked by wins, then point difference, then points scored, then the match the two teams played against each other, and the leaderboard and Top 3 badges follow that podium. Switching the mode off keeps the draw so you can come back to it.</p></article>
+            <article><b>11. Tournament Mode</b><p>A round robin for fixed teams of two, turned on in Tournament. <b>Each court runs its own bracket</b>: pick a division for Court 1 and another for Court 2 — for example intermediate-to-advanced on Court 1 and beginners on Court 2 — then draw the teams for each. Only players inside a court’s band can be drawn into it, and nobody is on two teams. Make the draw and every team in a bracket plays every other team in that bracket once, over as many rounds as it has teams minus one; with an odd number, one rests each round. Start Next Match fills each court from its own draw, so fair rotation, the game limit, court skill levels and fixed partners are all paused while it runs. Each bracket gets its own standings and its own champion — ranked by wins, then point difference, then points scored, then the match the two teams played against each other. Leave a court with no teams and it becomes spare, taking whichever bracket needs a court next, which is how one tournament runs across both. Switching the mode off keeps the draws.</p></article>
             <article><b>10. Fixed Partners</b><p>In Match Settings you can lock two players together as partners for the rest of the session — they are always on the same team. A locked pair is picked as one unit: both play or neither does, so if one partner is Done on the game limit or does not match a court's level, the pair waits. The "avoid recent partners" rule is switched off for them, while fair rotation still decides when they play. CHANGE can split a pair for one round if you need to, and UNLINK in Match Settings ends the partnership for good.</p></article>
           </div>
         </div>
@@ -357,13 +365,13 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="theme.js?v=8.0"></script>
-  <script src="app.js?v=8.0"></script>
-  <script src="qr.js?v=8.0"></script>
-  <script src="sha256.js?v=8.0"></script>
-  <script src="badge-core.js?v=8.0"></script>
-  <script src="badges.js?v=8.0"></script>
-  <script src="tournament.js?v=8.0"></script>
-  <script src="sheets.js?v=8.0"></script>
+  <script src="theme.js?v=8.1"></script>
+  <script src="app.js?v=8.1"></script>
+  <script src="qr.js?v=8.1"></script>
+  <script src="sha256.js?v=8.1"></script>
+  <script src="badge-core.js?v=8.1"></script>
+  <script src="badges.js?v=8.1"></script>
+  <script src="tournament.js?v=8.1"></script>
+  <script src="sheets.js?v=8.1"></script>
 </body>
 </html>
