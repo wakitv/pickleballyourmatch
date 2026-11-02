@@ -1,4 +1,50 @@
-# BuenasxPickle v8.1 — One Tournament Per Court
+# BuenasxPickle v8.2 — Games Per Team
+
+## What changed in v8.2
+Each court's tournament now has a **length**. A stepper beside the division sets how
+many games every team gets, and the draw goes round that many times: single, double,
+triple or quadruple round robin.
+
+### Why it steps in whole cycles
+One trip round the draw gives every team exactly one game against every other, so
+games per team is always **(teams − 1) × cycles**. With 4 teams a step is 3 games;
+with 6 teams it is 5. Stopping part-way through a cycle would leave some teams having
+met twice while others met once, and the table would no longer be comparing like with
+like — so the control moves a whole cycle at a time and the note says what a step
+costs before you press it.
+
+The stepper is labelled in games, not cycles, because that is the question an organiser
+actually asks: `4 games each · double`.
+
+### The return leg
+A second trip round swaps the sides of the first, so a team that was Team A against
+someone the first time is Team B the second. Combined with the pinned-fixture flip from
+v8.0, no team ends up more than one match out of balance between the two halves of the
+scorecard, at any length. Fixtures from a later leg carry a small `#2` by the *vs* in
+the draw.
+
+### Head-to-head, over more than one meeting
+The tiebreak had to grow up. Two teams can now meet two, three or four times, so a tie
+on wins, point difference and points scored is settled by the **aggregate of their own
+meetings**: who won more of them, and failing that the points between just the two.
+A single round robin behaves exactly as before, because there is only one meeting to
+aggregate.
+
+### Set per court
+Length is per court, like the division, so Court 1 can be a double round robin for the
+intermediate-to-advanced bracket while Court 2 plays a single for the beginners. The
+court tab, the standings header and the saved session all say which is which.
+
+### Checked
+The draw verified for **2 to 9 teams at every length from 1 to 4**: every team plays
+exactly (teams − 1) × cycles games, every pair meets exactly `cycles` times, the match
+and round counts are right, no team appears twice in a round, side imbalance never
+exceeds one match, fixture ids are unique and legs number 1..K.
+
+The head-to-head rule isolated over two meetings: two teams finishing level on wins,
+points scored and point difference swap places when — and only when — the results of
+their own two matches swap. Sessions from v8.1 and v8.0 load as single round robins.
+Both themes at 1280px and 375px, no horizontal overflow, no console errors.
 
 ## What changed in v8.1
 A tournament now runs **one bracket per court**. Court 1 can be the

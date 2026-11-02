@@ -189,7 +189,8 @@ function newSessionId() {
 function defaultTournament() {
   // One division per court: each court runs its own bracket.
   return { teams: [], fixtures: [], started: false, startedAt: "",
-    divisions: { 1: "all", 2: "all" }, nextTeamId: 1, nextFixtureId: 1 };
+    divisions: { 1: "all", 2: "all" }, cycles: { 1: 1, 2: 1 },
+    nextTeamId: 1, nextFixtureId: 1 };
 }
 function defaultState() {
   return { players: [], rounds: [], nextPlayerId: 1, nextRoundId: 1, queueSeq: 1, courtCount: 2,
@@ -258,9 +259,13 @@ function normalizeState(raw) {
     // v8.1 kept one division for the whole tournament; it becomes Court 1's.
     const legacy = TOURNAMENT_DIVISIONS.some(d => d.key === t.division) ? t.division : null;
     const rawDiv = t.divisions && typeof t.divisions === "object" ? t.divisions : {};
+    // How many times each court's draw goes round. Anything older is a single
+    // round robin, which is what every draw was before this was settable.
+    const rawCyc = t.cycles && typeof t.cycles === "object" ? t.cycles : {};
     [1, 2].forEach(c => {
       const want = rawDiv[c] !== undefined ? rawDiv[c] : (c === 1 ? legacy : null);
       tour.divisions[c] = TOURNAMENT_DIVISIONS.some(d => d.key === want) ? want : "all";
+      tour.cycles[c] = Math.max(1, Math.min(4, Math.round(Number(rawCyc[c])) || 1));
     });
     const seen = new Set();
     tour.teams = (Array.isArray(t.teams) ? t.teams : []).reduce((keep, team) => {
@@ -284,7 +289,8 @@ function normalizeState(raw) {
       // later draw has moved on to another one.
       const court = Number(f.court) === 2 ? 2 : 1;
       const div = TOURNAMENT_DIVISIONS.some(d => d.key === f.div) ? f.div : tour.divisions[court];
-      keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b, court, div });
+      keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b, court, div,
+        leg: Math.max(1, Math.round(Number(f.leg)) || 1) });
       return keep;
     }, []);
     tour.started = t.started === true && tour.fixtures.length > 0;
@@ -2031,7 +2037,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "8.1";
+const APP_VERSION = "8.2";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;

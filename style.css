@@ -433,6 +433,7 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .t-court-tabs button.selected em{color:var(--lime)}
 .t-court-tabs button:disabled{opacity:.45;cursor:not-allowed}
 .t-division-box{margin-top:14px}
+.t-length-box{margin-top:10px}
 .t-divisions button{display:inline-flex;align-items:center;gap:6px}
 .t-divisions button em{font-style:normal;padding:1px 6px;border-radius:999px;background:var(--tint);
   color:var(--dim);font-size:11px;font-weight:800}
@@ -461,6 +462,8 @@ input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 
 .t-bracket-head b{font-family:var(--display);font-size:17px}
 .t-bracket-div{padding:3px 9px;border-radius:999px;background:rgba(255,192,138,.16);color:var(--mint);
   font-size:11px;font-weight:800}
+.t-bracket-legs{background:rgba(255,122,24,.14);color:var(--lime)}
+.t-leg{margin-left:4px;padding:0 4px;border-radius:4px;background:var(--tint);color:var(--dim);font-size:9px}
 .t-bracket-head em{margin-left:auto;font-style:normal;color:var(--dim);font-size:12px;font-weight:700}
 .t-draw-group+.t-draw-group{margin-top:16px}
 .t-draw-title{margin-bottom:8px;color:var(--lime);font-size:12px;font-weight:800;letter-spacing:.06em;

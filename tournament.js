@@ -53,6 +53,33 @@
   const eligibleFor = court => activePlayers()
     .filter(p => fitsDivision(p, divisionFor(court)) && !onATeam(p.id));
 
+  // How many times the draw goes round. One cycle gives every team exactly
+  // one game against every other, so games per team is (teams - 1) x cycles --
+  // which is why this is set in cycles and shown in games: a whole number of
+  // cycles is the only way every team plays the same opponents the same
+  // number of times.
+  const CYCLE_MAX = 4;
+  const CYCLE_WORDS = ["", "single", "double", "triple", "quadruple"];
+  const cyclesFor = court => {
+    const n = Number((T().cycles || {})[Number(court)]) || 1;
+    return Math.max(1, Math.min(CYCLE_MAX, n));
+  };
+  const gamesEach = (teamCount, cycles) => teamCount < 2 ? 0 : (teamCount - 1) * cycles;
+  const gamesEachOn = court => gamesEach(teamsOn(court).length, cyclesFor(court));
+
+  function setCycles(court, n) {
+    if (started()) return toast("The draw is already made. Scrap it first to change the length.");
+    court = Number(court);
+    n = Math.max(1, Math.min(CYCLE_MAX, Number(n) || 1));
+    if (n === cyclesFor(court)) return;
+    T().cycles[court] = n;
+    saveState();
+    const teamCount = teamsOn(court).length;
+    toast(teamCount < 2
+      ? `Court ${court}: ${CYCLE_WORDS[n]} round robin.`
+      : `Court ${court}: ${CYCLE_WORDS[n]} round robin — ${gamesEach(teamCount, n)} games each.`);
+  }
+
   function setDivision(court, key) {
     if (started()) return toast("The draw is already made. Scrap it first to change a division.");
     court = Number(court);
@@ -165,23 +192,31 @@
   // Circle method. One team is pinned and the rest rotate around it, so after
   // N-1 rounds every pair has met exactly once. An odd count gets a phantom
   // team (0) whose opponent each round simply rests.
-  function buildSchedule(ids, court, div) {
-    const list = ids.slice();
-    if (list.length % 2) list.push(0);
-    const n = list.length;
+  function buildSchedule(ids, court, div, cycles) {
     const out = [];
-    for (let r = 0; r < n - 1; r++) {
-      for (let i = 0; i < n / 2; i++) {
-        const x = list[i], y = list[n - 1 - i];
-        if (!x || !y) continue;                       // this one has the bye
-        // The circle method would otherwise put the same team on the same
-        // side of every scorecard. Flipping the pinned team's fixture on
-        // alternate rounds spreads it: no team ends up more than one match
-        // out of balance between Team A and Team B.
-        const [home, away] = (i === 0 && r % 2) ? [y, x] : [x, y];
-        out.push({ id: T().nextFixtureId++, round: r + 1, a: home, b: away, court, div });
+    const width = (ids.length % 2 ? ids.length + 1 : ids.length) - 1;  // rounds per cycle
+    for (let c = 0; c < Math.max(1, cycles); c++) {
+      const list = ids.slice();
+      if (list.length % 2) list.push(0);
+      const n = list.length;
+      // The return leg swaps the sides of the first leg, so a team that was
+      // Team A against someone the first time is Team B the second.
+      const leg = c % 2 === 1;
+      for (let r = 0; r < n - 1; r++) {
+        for (let i = 0; i < n / 2; i++) {
+          const x = list[i], y = list[n - 1 - i];
+          if (!x || !y) continue;                     // this one has the bye
+          // The circle method would otherwise put the same team on the same
+          // side of every scorecard. Flipping the pinned team's fixture on
+          // alternate rounds spreads it: no team ends up more than one match
+          // out of balance between Team A and Team B.
+          let [home, away] = (i === 0 && r % 2) ? [y, x] : [x, y];
+          if (leg) [home, away] = [away, home];
+          out.push({ id: T().nextFixtureId++, round: c * width + r + 1,
+            a: home, b: away, court, div, leg: c + 1 });
+        }
+        list.splice(1, 0, list.pop());                // rotate all but the first
       }
-      list.splice(1, 0, list.pop());                  // rotate all but the first
     }
     return out;
   }
@@ -201,13 +236,14 @@
     }
 
     T().fixtures = live.flatMap(c =>
-      buildSchedule(teamsOn(c).map(t => t.id), c, divisionFor(c)));
+      buildSchedule(teamsOn(c).map(t => t.id), c, divisionFor(c), cyclesFor(c)));
     T().started = true;
     T().startedAt = new Date().toISOString();
     saveState();
     const parts = live.map(c => {
       const n = fixturesOn(c).length;
-      return `Court ${c}: ${teamsOn(c).length} teams, ${n} match${n === 1 ? "" : "es"}`;
+      return `Court ${c}: ${teamsOn(c).length} teams, ${n} match${n === 1 ? "" : "es"}, `
+        + `${gamesEachOn(c)} game${gamesEachOn(c) === 1 ? "" : "s"} each`;
     });
     toast(`Draw made — ${parts.join(" · ")}. Press Start Next Match.`);
   }
@@ -361,15 +397,22 @@
   // point in a circle, and the comparisons before it are what decide; this
   // only ever breaks what is still level after them.
   function headToHead(x, y) {
-    const r = state.rounds.find(round => {
-      if (round.status !== "completed" || !round.fixtureId) return false;
+    // Two teams can meet more than once when the draw goes round more than
+    // once, so this is the aggregate of their meetings: who won more of them,
+    // and failing that the points between just the two of them.
+    let wins = 0, points = 0;
+    state.rounds.forEach(round => {
+      if (round.status !== "completed" || !round.fixtureId) return;
       const f = fixture(round.fixtureId);
-      return f && ((f.a === x && f.b === y) || (f.a === y && f.b === x));
+      if (!f) return;
+      if (!((f.a === x && f.b === y) || (f.a === y && f.b === x))) return;
+      const sa = Number(round.scoreA) || 0, sb = Number(round.scoreB) || 0;
+      const forX = f.a === x ? sa - sb : sb - sa;
+      points += forX;
+      const winner = round.winner === "A" ? f.a : f.b;
+      wins += winner === x ? 1 : -1;
     });
-    if (!r) return 0;
-    const f = fixture(r.fixtureId);
-    const winner = r.winner === "A" ? f.a : f.b;
-    return winner === x ? -1 : 1;
+    return wins ? (wins > 0 ? -1 : 1) : points ? (points > 0 ? -1 : 1) : 0;
   }
 
   // One table per bracket. A court's table only counts matches between its own
@@ -478,6 +521,8 @@
         division: divisionLabel(list.length ? list[0].div : divisionFor(c)),
         teams: teamsOn(c).length,
         rounds: roundsOn(c),
+        format: `${CYCLE_WORDS[cyclesFor(c)]} round robin`,
+        gamesPerTeam: gamesEachOn(c),
         matches: list.length,
         played: list.filter(played).length,
         champion: table.length && table[0].played ? teamName(table[0].team) : "",
@@ -524,6 +569,7 @@
           <div class="t-bracket-head">
             <b>Court ${c}</b>
             <span class="t-bracket-div">${d.key === "all" ? "All levels" : esc(divisionLabel(d.key))}</span>
+            ${cyclesFor(c) > 1 ? `<span class="t-bracket-div t-bracket-legs">${CYCLE_WORDS[cyclesFor(c)]} round robin</span>` : ""}
             <em>${done ? "Final" : `Round ${currentRoundOn(c)} of ${roundsOn(c)}`}</em>
           </div>
           <div class="rank-row rank-head t-row">
@@ -548,7 +594,7 @@
           }).join("")}
         </div>`;
     }).join("")
-      + `<div class="lb-note">Ranked by <b>wins</b>, then point difference, then points scored. Two teams level on all three are split by the match they played against each other.`
+      + `<div class="lb-note">Ranked by <b>wins</b>, then point difference, then points scored. Two teams level on all three are split by their own matches against each other — who won more of them, then the points between just the two.`
       + (live.length > 1 ? ` Each court is its own tournament with its own champion — the two never meet.` : "")
       + `</div>`;
 
@@ -597,7 +643,8 @@
       : r ? `<em>on court ${r.court}</em>` : `<em>to play</em>`;
     const winner = done ? (r.winner === "A" ? f.a : f.b) : 0;
     const side = id => `<span class="${winner === id ? "t-win" : ""}">${esc(teamName(teamOf(id)))}</span>`;
-    return `<div class="t-fixture ${cls}">${side(f.a)}<span class="t-vs">vs</span>${side(f.b)}<span class="t-score">${score}</span></div>`;
+    const leg = Number(f.leg) > 1 ? `<span class="t-leg">#${f.leg}</span>` : "";
+    return `<div class="t-fixture ${cls}">${side(f.a)}<span class="t-vs">vs${leg}</span>${side(f.b)}<span class="t-score">${score}</span></div>`;
   }
 
   /* ---------- the Tournament modal ---------- */
@@ -614,9 +661,11 @@
       const n = teamsOn(c).length;
       const d = divisionOf(divisionFor(c));
       const picked = c === editing;
+      const k = cyclesFor(c);
       return `<button type="button" data-court-tab="${c}" class="${picked ? "selected" : ""}"
         aria-pressed="${picked}"${!on() ? " disabled" : ""}>Court ${c}
-        <em>${n} team${n === 1 ? "" : "s"}${d.key === "all" ? "" : ` · ${esc(d.label)}`}</em></button>`;
+        <em>${n} team${n === 1 ? "" : "s"}${d.key === "all" ? "" : ` · ${esc(d.label)}`}${
+          k > 1 ? ` · ${CYCLE_WORDS[k]}` : ""}</em></button>`;
     }).join("");
   }
 
@@ -644,6 +693,42 @@
         : `${free} player${free === 1 ? "" : "s"} free to draw into Court ${editing}'s ${divisionLabel(key)}.`;
   }
 
+  function renderLength() {
+    const label = document.getElementById("tLengthLabel");
+    if (!label) return;
+    const k = cyclesFor(editing);
+    const n = teamsOn(editing).length;
+    const games = gamesEach(n, k);
+    label.textContent = courts().length > 1
+      ? `🔁 Court ${editing} · games per team` : "🔁 Games per team";
+    document.getElementById("tLengthValue").textContent = games || "—";
+    document.getElementById("tLengthUnit").textContent = games
+      ? `game${games === 1 ? "" : "s"} each · ${CYCLE_WORDS[k]}`
+      : `${CYCLE_WORDS[k]} round robin`;
+    const minus = document.querySelector('[data-cycle-step="-1"]');
+    const plus = document.querySelector('[data-cycle-step="1"]');
+    const locked = !on() || started();
+    if (minus) minus.disabled = locked || k <= 1;
+    if (plus) plus.disabled = locked || k >= CYCLE_MAX;
+    const note = document.getElementById("tLengthNote");
+    if (!note) return;
+    // Games per team only moves in whole cycles, so say what a step buys
+    // rather than letting the stepper look broken between them.
+    note.textContent = started()
+      ? `Court ${editing} is a ${CYCLE_WORDS[cyclesFor(editing)]} round robin: `
+        + `${gamesEachOn(editing)} games each. Scrap the draw to change it.`
+      : n < 2
+        ? `Every team plays every other team ${k} time${k === 1 ? "" : "s"}. Draw the teams to see how many games that is.`
+        : (() => {
+          const rounds = (n % 2 ? n : n - 1) * k;
+          const matches = (n * (n - 1) / 2) * k;
+          return `Every team plays every other team ${k} time${k === 1 ? "" : "s"} — `
+            + `${rounds} round${rounds === 1 ? "" : "s"}, ${matches} match${matches === 1 ? "" : "es"}. `
+            + `A step is ${n - 1} game${n - 1 === 1 ? "" : "s"} each, because a part-finished `
+            + `cycle would leave some teams having met twice and others once.`;
+        })();
+  }
+
   function renderModal() {
     const sw = document.getElementById("tModeToggle");
     if (!sw) return;
@@ -656,6 +741,7 @@
 
     renderCourtTabs();
     renderDivisions();
+    renderLength();
     const body = document.getElementById("tBody");
     body.classList.toggle("is-off", !on());
     document.getElementById("tDrawBox").classList.toggle("hidden", started());
@@ -666,7 +752,8 @@
       document.getElementById("tLiveNote").textContent = liveCourts().map(c => {
         const d = divisionOf(divisionFor(c));
         return `Court ${c} (${d.key === "all" ? "all levels" : d.label}): `
-          + `${teamsOn(c).length} teams, ${roundsOn(c)} rounds, ${fixturesOn(c).length} matches`;
+          + `${teamsOn(c).length} teams, ${roundsOn(c)} rounds, ${fixturesOn(c).length} matches, `
+          + `${gamesEachOn(c)} games each`;
       }).join(" · ") + (left ? ` — ${left} still to play.` : " — all played.");
       document.getElementById("tEndBtn").textContent = left ? "Scrap the draw" : "Scrap the draw & re-draw";
       return;
@@ -709,8 +796,9 @@
       : `<div class="pair-empty">No teams on Court ${editing} yet. Draw them automatically, or pick two players and add them.</div>`;
 
     const n = mine.length;
-    const rounds = n < 2 ? 0 : (n % 2 ? n : n - 1);
-    const matches = n < 2 ? 0 : (n * (n - 1)) / 2;
+    const k = cyclesFor(editing);
+    const rounds = n < 2 ? 0 : (n % 2 ? n : n - 1) * k;
+    const matches = n < 2 ? 0 : ((n * (n - 1)) / 2) * k;
     const spare = `${free.length} player${free.length === 1 ? "" : "s"} free to draw.`;
     const others = courts().filter(c => c !== editing && teamsOn(c).length >= 2)
       .map(c => `Court ${c} has ${teamsOn(c).length} teams.`).join(" ");
@@ -719,7 +807,7 @@
       : n < 2
         ? `A round robin needs at least 2 teams on this court. Every team plays every other team once. `
         : `Court ${editing}: ${n} teams → ${rounds} round${rounds === 1 ? "" : "s"}, `
-          + `${matches} match${matches === 1 ? "" : "es"}.`
+          + `${matches} match${matches === 1 ? "" : "es"}, ${gamesEachOn(editing)} games each.`
           + (n % 2 ? " With an odd number of teams, one team rests each round." : "") + " ")
       + spare + (others ? " " + others : "");
   }
@@ -749,6 +837,12 @@
       draft = { a: "", b: "" };
       renderModal();
     });
+    document.querySelectorAll("[data-cycle-step]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.disabled) return;
+        setCycles(editing, cyclesFor(editing) + Number(btn.dataset.cycleStep));
+      });
+    });
     document.getElementById("tDivisions").addEventListener("click", e => {
       const btn = e.target.closest("[data-division]");
       if (btn && !btn.disabled) setDivision(editing, btn.dataset.division);
@@ -762,7 +856,8 @@
   wire();
   window.Tournament = {
     on, started, fill, render: paint, playerOrder, summary,
-    setMode, resetDraw, setDivision, autoDraw, addTeam, start,
+    setMode, resetDraw, setDivision, setCycles, autoDraw, addTeam, start,
+    cyclesFor, gamesEachOn,
     standingsOn, liveCourts, divisionFor, headline,
     cardTags, sideLabel,
     remaining: () => remaining().length
