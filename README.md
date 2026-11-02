@@ -1,4 +1,44 @@
-# BuenasxPickle v7.9 — LIVE on Every Court
+# BuenasxPickle v8.0 — Tournament Mode (Round Robin)
+
+## What changed in v8.0
+The app has a **second mode**. Open play is what it has always been: fair rotation picks who plays next and partners change every match. **Tournament mode** is the opposite — fixed teams of two, and a draw made before the first serve in which every team plays every other team once.
+
+They are opposite ideas rather than two settings, so while a tournament is on, **fair rotation, the game limit, court skill levels and fixed partners all stand down**: the draw has already decided everything they would have decided. Only the court count still applies. Match settings says so at the top while it is running.
+
+### Making the draw
+A new **Tournament** item in the menu holds the whole thing:
+
+- **Draw teams automatically** pairs the strongest player with the weakest, working inwards. It does not make the teams equal — nothing does — but it stops the two best players ending up together, which is the one draw that makes the whole afternoon a formality.
+- Or pick two players and **Add team**, as many times as you like.
+- **Make the draw & start** builds the schedule. The note above it says what you are about to get: `6 teams → 5 rounds, 15 matches`.
+
+The draw is the circle method — pin one team, rotate the rest — so after N‑1 rounds every pair has met exactly once. With an **odd number of teams one rests each round**, and the schedule says which. That is a real rest, not a walkover.
+
+One detail worth the code it took: the circle method would otherwise put the same team on the same side of every single scorecard. Flipping the pinned fixture on alternate rounds spreads it, so no team ends up more than one match out of balance between Team A and Team B. Checked for 2 to 11 teams.
+
+### Playing it
+**Generate Matches becomes Start Next Match**, and takes the next fixtures off the draw instead of picking players out of a queue. Both courts still run at once — a team already on court is skipped rather than drawn twice. Everything downstream is the code that was already there: the same court cards, the same score entry, the same rating maths, the same history. A tournament match is an ordinary round with a fixture id on it.
+
+The cards name the teams from the draw instead of *Team A* and *Team B*, wear a `🏆 Round 2 of 5` tag, and drop the CHANGE buttons — substituting a player would break the team the draw is built on.
+
+### Standings
+A **Tournament Standings** panel appears under Active Matches: played, won, lost, points for and point difference, plus the whole draw round by round with results as they come in.
+
+Ranked by **wins**, then point difference, then points scored. Two teams still level on all three are split by **the match they played against each other**, which in a single round robin settles a two-way tie exactly. In a three-way tie it can point in a circle; it is deliberately left to decide nothing there, and the comparisons before it are what rank the table. A team that has not played yet sorts below every team that has, the same way the player leaderboard treats someone with no games.
+
+### Where the podium comes from
+While a tournament is running, the **player leaderboard follows the tournament standings** — the champions first, then the runners-up. It has to: a table saying one team won, next to badges awarded to somebody from mid-table, would be the app contradicting itself on one screen. Inside a team the player with the better point difference is listed first. Top 3 badges and the Top List follow from that automatically, unchanged.
+
+### Ending one
+Switching the toggle off goes back to open play and **keeps the draw**, so a tournament can be picked up later and a session saved afterwards still carries its standings. **Scrap the draw** is the destructive one, and the only way back to the team builder; matches already played stay in History but leave the standings with the fixtures they belonged to. Fixture ids never restart, so a round played under a scrapped draw can never be confused with a new one.
+
+### In the spreadsheet
+The Sessions tab gains **Format** and **Champion** columns. Existing sheets pick them up on the next save — `sheetFor()` adds missing columns on the end rather than shifting anything. **This needs the script redeployed** (Deploy → Manage deployments → Edit → Version: New version).
+
+### Checked
+The draw verified for 2–11 teams: right number of matches and rounds, every pair exactly once, no team twice in a round, one rest per round when odd, unique fixture ids. A full 4-team tournament played through the real score path end to end. The head-to-head rule isolated by seeding two level teams so seed order and head-to-head disagree — head-to-head wins. Sessions from v7.9 load as open play with an empty tournament; deliberately corrupted tournament data loads with the bad teams and fixtures dropped and no console errors. Open play re-checked unchanged. Both themes at 1280px and 375px, no horizontal overflow.
+
+One real bug found in testing and fixed: app.js renders the page at the end of its own file, before tournament.js exists, so a session left mid-tournament drew its courts as open play — *Team A* against *Team B*, with CHANGE buttons the draw does not allow. The module renders the page again once it has loaded.
 
 ## What changed in v7.9
 A court with a match on it now says **LIVE**, with an orange dot that breathes, where it used to say *In play*. One word, the one a scoreboard would use, and the pulse makes the difference between a court that is playing and one that is finished readable at a glance rather than by reading.

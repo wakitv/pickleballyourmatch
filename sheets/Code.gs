@@ -56,7 +56,8 @@ function paintRows(sheet, from, colour) {
 }
 
 var SESSION_HEADERS = ['Saved at', 'Session', 'Date', 'Started at', 'Players',
-  'Matches played', 'Courts', 'Games per player', 'Top 1', 'Top 2', 'Top 3'];
+  'Matches played', 'Courts', 'Games per player', 'Format', 'Champion',
+  'Top 1', 'Top 2', 'Top 3'];
 var PLAYER_HEADERS = ['Saved at', 'Session', 'Date', 'Rank', 'Player', 'Score',
   'Games', 'Wins', 'Losses', 'Point diff', 'Rating', 'Starting rating'];
 var BADGE_HEADERS = ['Saved at', 'Session', 'Batch', 'Rank', 'Player', 'Wins',
@@ -197,6 +198,7 @@ function doPost(e) {
       'Started at': body.startedAt || '', 'Players': body.playerCount || 0,
       'Matches played': body.matchesPlayed || 0, 'Courts': body.courts || '',
       'Games per player': body.gamesPerPlayer || '',
+      'Format': body.format || 'Open play', 'Champion': body.champion || '',
       'Top 1': nameAt(top, 0), 'Top 2': nameAt(top, 1), 'Top 3': nameAt(top, 2)
     });
 

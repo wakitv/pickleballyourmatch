@@ -30,9 +30,24 @@ let activeResultRoundId = null;
 // Games per player: 0 = no limit. Otherwise a player who has finished this many
 // games is "Done" and is left out of new matches (and CHANGE replacements).
 function hasGamesLeft(p) {
+  // A tournament is finished when the draw is finished, not when a player has
+  // had their share of games, so the limit stands down while one is running.
+  if (tournamentMode()) return true;
   const limit = Number(state && state.gameLimit) || 0;
   return !limit || (Number(p.games) || 0) < limit;
 }
+
+/*
+  Modes
+  -----
+  "open" is the paddle-queue session this app has always been: fair rotation
+  decides who plays next and partners change every match. "tournament" is the
+  opposite -- fixed teams and a draw made in advance -- and lives in
+  tournament.js. Everything from the score onwards is shared.
+*/
+function tournamentMode() { return state.mode === "tournament"; }
+// The tournament module, but only when it is both loaded and in charge.
+function tourney() { return tournamentMode() && window.Tournament ? window.Tournament : null; }
 function isDone(p) { return !hasGamesLeft(p); }
 
 /*
@@ -137,10 +152,13 @@ function newSessionId() {
   const rand = Math.floor(Math.random() * 36).toString(36).toUpperCase();
   return stamp + rand;
 }
+function defaultTournament() {
+  return { teams: [], fixtures: [], started: false, startedAt: "", nextTeamId: 1, nextFixtureId: 1 };
+}
 function defaultState() {
   return { players: [], rounds: [], nextPlayerId: 1, nextRoundId: 1, queueSeq: 1, courtCount: 2,
     gameLimit: 0, courtRules: defaultCourtRules(), fixedPairs: [], sessionId: newSessionId(),
-    startedAt: new Date().toISOString() };
+    startedAt: new Date().toISOString(), mode: "open", tournament: defaultTournament() };
 }
 function loadState() {
   try {
@@ -193,6 +211,41 @@ function normalizeState(raw) {
       return keep;
     }, []);
 
+    // Tournament mode (v8.0). Anything from an earlier version has neither a
+    // mode nor a draw, so it loads as open play with an empty tournament.
+    // A team whose player has gone, or a fixture naming a team that no longer
+    // exists, is dropped rather than left to blow up later.
+    s.mode = s.mode === "tournament" ? "tournament" : "open";
+    const t = s.tournament && typeof s.tournament === "object" ? s.tournament : {};
+    const tour = defaultTournament();
+    tour.nextTeamId = Number(t.nextTeamId) || 1;
+    const seen = new Set();
+    tour.teams = (Array.isArray(t.teams) ? t.teams : []).reduce((keep, team) => {
+      if (!team || !Array.isArray(team.players) || team.players.length !== 2) return keep;
+      const [a, b] = team.players.map(Number);
+      if (!ids.has(a) || !ids.has(b) || a === b || seen.has(a) || seen.has(b)) return keep;
+      seen.add(a); seen.add(b);
+      keep.push({ id: Number(team.id) || keep.length + 1, players: [a, b] });
+      return keep;
+    }, []);
+    const teamIds = new Set(tour.teams.map(x => x.id));
+    tour.fixtures = (Array.isArray(t.fixtures) ? t.fixtures : []).reduce((keep, f) => {
+      if (!f) return keep;
+      const a = Number(f.a), b = Number(f.b);
+      if (!teamIds.has(a) || !teamIds.has(b) || a === b) return keep;
+      keep.push({ id: Number(f.id) || keep.length + 1, round: Number(f.round) || 1, a, b });
+      return keep;
+    }, []);
+    tour.started = t.started === true && tour.fixtures.length > 0;
+    tour.startedAt = typeof t.startedAt === "string" ? t.startedAt : "";
+    tour.nextTeamId = Math.max(tour.nextTeamId, ...tour.teams.map(x => x.id + 1), 1);
+    // Fixture ids never restart: a round played under a scrapped draw still
+    // carries the old id, and a new draw must not reuse it.
+    tour.nextFixtureId = Math.max(Number(t.nextFixtureId) || 1,
+      ...tour.fixtures.map(f => f.id + 1),
+      ...s.rounds.map(r => (Number(r.fixtureId) || 0) + 1), 1);
+    s.tournament = tour;
+
     // Migration/normalization: older BuenasxPickle versions could store IDs as
     // strings. CHANGE/REMOVE must work regardless of which version created the data.
     s.players.forEach(p => {
@@ -219,6 +272,10 @@ function normalizeState(raw) {
       r.teamA = Array.isArray(r.teamA) ? r.teamA.map(Number) : [];
       r.teamB = Array.isArray(r.teamB) ? r.teamB.map(Number) : [];
       r.playerChanges = Array.isArray(r.playerChanges) ? r.playerChanges : [];
+      // Present on tournament rounds only; it is what ties a round back to
+      // the fixture in the draw that produced it.
+      r.fixtureId = Number(r.fixtureId) || 0;
+      r.tRound = Number(r.tRound) || 0;
     });
 
     // Ensure future IDs cannot collide with migrated records.
@@ -598,6 +655,12 @@ function pendingRounds() {
 }
 
 function fillPendingRounds(silent = false) {
+  // In tournament mode the next match is already decided; it comes off the
+  // draw instead of out of the rotation queue.
+  if (tournamentMode()) {
+    const t = tourney();
+    return t ? t.fill(silent) : toast("Tournament mode could not load. Reload the page.");
+  }
   // Manual-only: Generate Matches is the only action that creates matches.
   // The selected court count controls how many pending matches can exist.
   const active = activePlayers();
@@ -1096,8 +1159,29 @@ function render() {
   const matchWord = state.courtCount === 1 ? "match" : "matches";
   const matchLimitText = document.getElementById("matchLimitText");
   if (matchLimitText) matchLimitText.textContent = `${state.courtCount} Court${state.courtCount === 1 ? "" : "s"}`;
+  const t = tourney();
   const matchesSubtitle = document.getElementById("matchesSubtitle");
-  if (matchesSubtitle) matchesSubtitle.textContent = `Up to ${state.courtCount} ${courtWord} / ${state.courtCount} pending ${matchWord} at a time`;
+  if (matchesSubtitle) {
+    const left = t && t.started() ? t.remaining() : 0;
+    matchesSubtitle.textContent = t && t.started()
+      ? (left ? `Round ${t.currentRound()} of ${t.totalRounds()} · ${left} match${left === 1 ? "" : "es"} left in the draw`
+              : "Every match in the draw has been played")
+      : `Up to ${state.courtCount} ${courtWord} / ${state.courtCount} pending ${matchWord} at a time`;
+  }
+  const genBtn = document.getElementById("autoMatchBtn");
+  if (genBtn) {
+    genBtn.textContent = t ? "Start Next Match" : "Generate Matches";
+    genBtn.disabled = !!(t && t.started() && !t.remaining());
+  }
+  const modeChip = document.getElementById("heroModeChip");
+  if (modeChip) {
+    modeChip.classList.toggle("hidden", !t);
+    if (t) modeChip.textContent = t.started()
+      ? `🏆 Tournament · Round ${t.currentRound()} of ${t.totalRounds()}`
+      : "🏆 Tournament · no draw yet";
+  }
+  const settingsNote = document.getElementById("settingsModeNote");
+  if (settingsNote) settingsNote.classList.toggle("hidden", !t);
   const heroCourtChip = document.getElementById("heroCourtChip");
   if (heroCourtChip) heroCourtChip.textContent = `🏓 ${state.courtCount} Court${state.courtCount === 1 ? "" : "s"}`;
   const heroMatchChip = document.getElementById("heroMatchChip");
@@ -1117,7 +1201,7 @@ function render() {
   renderFixedPairs();
   const heroLevelChip = document.getElementById("heroLevelChip");
   if (heroLevelChip) {
-    const on = courtRulesOn();
+    const on = courtRulesOn() && !t;
     heroLevelChip.classList.toggle("hidden", !on);
     if (on) heroLevelChip.textContent = state.courtCount === 1
       ? `⭐ C1 ${courtRangeText(1)}`
@@ -1128,12 +1212,15 @@ function render() {
   document.getElementById("waitingCount").textContent = nextCount;
   document.getElementById("roundCount").textContent = state.rounds.filter(r => r.status === "completed").length;
   document.getElementById("queueSubtitle").textContent = `${inCount} in current matches · ${nextCount} waiting`;
-  renderRotationDashboard(inCount, nextCount);
+  const rotation = document.getElementById("rotationDashboard");
+  if (rotation) rotation.classList.toggle("hidden", !!t);
+  if (!t) renderRotationDashboard(inCount, nextCount);
   renderWaiting();
   renderPlayerList();
   renderMatches();
   renderHistory();
   renderLeaderboard();
+  if (window.Tournament) window.Tournament.render();
   const nh = document.getElementById("navHistory");
   if (nh) nh.textContent = state.rounds.filter(r => r.status !== "pending").length;
 }
@@ -1157,7 +1244,8 @@ function renderGameLimit() {
   if (minus) minus.disabled = limit === 0;
   if (plus) plus.disabled = limit >= GAME_LIMIT_MAX;
   if (note) {
-    if (!limit) note.textContent = "Players keep rotating until you stop the session.";
+    if (tournamentMode()) note.textContent = "Paused: a tournament ends when the draw is played out, however many games that gives each player.";
+    else if (!limit) note.textContent = "Players keep rotating until you stop the session.";
     else {
       const slots = active.length * limit;
       const short = active.length && slots % 4 ? ` With ${active.length} players, ${(slots % 4)} player${slots % 4 === 1 ? "" : "s"} may end 1 game short.` : "";
@@ -1166,7 +1254,7 @@ function renderGameLimit() {
   }
   const chip = document.getElementById("heroLimitChip");
   if (chip) {
-    chip.classList.toggle("hidden", !limit);
+    chip.classList.toggle("hidden", !limit || tournamentMode());
     if (limit) chip.textContent = `🎯 ${limit} game${limit === 1 ? "" : "s"} each · ${done}/${active.length} done`;
   }
 }
@@ -1587,6 +1675,10 @@ function pairTag(team) {
 }
 
 function matchCard(r) {
+  // A tournament round carries its fixture, so the card names the teams from
+  // the draw instead of "Team A" / "Team B", and the open-play tags -- court
+  // level, fixed pair, CHANGE -- have nothing to say about it.
+  const t = r.fixtureId && window.Tournament ? window.Tournament : null;
   const aP = r.teamA.map(id => player(id)).filter(Boolean);
   const bP = r.teamB.map(id => player(id)).filter(Boolean);
   const aR = aP.reduce((s,p) => s + Number(p.rating || 3), 0);
@@ -1598,7 +1690,8 @@ function matchCard(r) {
       <div class="match-head">
         <div class="round-title">Court ${r.court || 1} <span>Round ${r.id}</span></div>
         <div class="head-tags">
-          ${courtRulesOn() && !isOpenCourt(r.court || 1) ? `<span class="court-level-tag">⭐ ${esc(courtRangeText(r.court || 1))}</span>` : ""}
+          ${t ? t.cardTags(r) : ""}
+          ${!t && courtRulesOn() && !isOpenCourt(r.court || 1) ? `<span class="court-level-tag">⭐ ${esc(courtRangeText(r.court || 1))}</span>` : ""}
           ${r.status === "pending" ? `<span class="bal ${bal.cls}" title="Team rating difference ${Math.abs(aR-bR).toFixed(2)}">${bal.label}</span>` : ""}
           ${r.status === "pending"
             ? `<span class="status live"><i></i>LIVE</span>`
@@ -1606,13 +1699,13 @@ function matchCard(r) {
         </div>
       </div>
       <div class="teams">
-        <div class="team${won("A")}"><div class="team-label">Team A${won("A") ? " · won" : ""}${pairTag(r.teamA)}</div><div class="team-chips">${playerChips(aP, r.status === "pending" ? r.id : null)}</div><div class="team-rating">Combined <b>${aR.toFixed(2)}</b>${r.status === "completed" ? `<em class="score">${r.scoreA}</em>` : ""}</div></div>
+        <div class="team${won("A")}"><div class="team-label">${t ? esc(t.sideLabel(r, "A")) : "Team A"}${won("A") ? " · won" : ""}${t ? "" : pairTag(r.teamA)}</div><div class="team-chips">${playerChips(aP, r.status === "pending" && !t ? r.id : null)}</div><div class="team-rating">Combined <b>${aR.toFixed(2)}</b>${r.status === "completed" ? `<em class="score">${r.scoreA}</em>` : ""}</div></div>
         <div class="vs">vs</div>
-        <div class="team right${won("B")}"><div class="team-label">Team B${won("B") ? " · won" : ""}${pairTag(r.teamB)}</div><div class="team-chips">${playerChips(bP, r.status === "pending" ? r.id : null)}</div><div class="team-rating">Combined <b>${bR.toFixed(2)}</b>${r.status === "completed" ? `<em class="score">${r.scoreB}</em>` : ""}</div></div>
+        <div class="team right${won("B")}"><div class="team-label">${t ? esc(t.sideLabel(r, "B")) : "Team B"}${won("B") ? " · won" : ""}${t ? "" : pairTag(r.teamB)}</div><div class="team-chips">${playerChips(bP, r.status === "pending" && !t ? r.id : null)}</div><div class="team-rating">Combined <b>${bR.toFixed(2)}</b>${r.status === "completed" ? `<em class="score">${r.scoreB}</em>` : ""}</div></div>
       </div>
       ${r.playerChanges?.length ? `<div class="player-change-log"><b>Substitutions:</b> ${r.playerChanges.map(c => `${esc(c.outgoingName)} → ${esc(c.incomingName)}`).join(" · ")}</div>` : ""}
       ${r.status === "pending"
-        ? `<div class="match-actions"><span class="match-lock">Players are locked until the score is saved</span><button type="button" class="btn-cancel" onclick="cancelRound(${r.id})">Cancel match</button><button type="button" class="btn-result" onclick="openResult(${r.id})">Enter score</button></div>`
+        ? `<div class="match-actions"><span class="match-lock">${t ? "Teams are fixed by the draw" : "Players are locked until the score is saved"}</span><button type="button" class="btn-cancel" onclick="cancelRound(${r.id})">Cancel match</button><button type="button" class="btn-result" onclick="openResult(${r.id})">Enter score</button></div>`
         : `<div class="rating-result">${renderRatingChanges(r)}</div>`}
     </div>`;
 }
@@ -1623,7 +1716,13 @@ function renderMatches() {
   const pending = pendingRounds().sort((a,b) => a.court - b.court);
   if (!pending.length) {
     el.className = "matches-list empty";
-    el.textContent = state.players.length ? "No match in play. Press Generate Matches to start the next one." : "No matches yet. Add at least 4 players, then press Generate Matches.";
+    const t = tourney();
+    el.textContent = t
+      ? (!t.started() ? "No draw yet. Open Tournament to pick the teams and make the draw."
+        : t.remaining() ? "No match on court. Press Start Next Match for the next fixture in the draw."
+        : "The draw is complete. The standings below are final.")
+      : state.players.length ? "No match in play. Press Generate Matches to start the next one."
+      : "No matches yet. Add at least 4 players, then press Generate Matches.";
     return;
   }
   el.className = "matches-list";
@@ -1665,7 +1764,9 @@ function cancelRound(roundId) {
   roundId = Number(roundId);
   const round = state.rounds.find(r => r.id === roundId && r.status === "pending");
   if (!round) return;
-  if (!confirm(`Cancel Round ${round.id}? Its four players return to the waiting list and the pairing is not counted as played.`)) return;
+  if (!confirm(round.fixtureId
+    ? `Cancel Round ${round.id}? The fixture goes back into the draw to be played later.`
+    : `Cancel Round ${round.id}? Its four players return to the waiting list and the pairing is not counted as played.`)) return;
   const ids = [...round.teamA, ...round.teamB].map(Number);
   ids.forEach(id => {
     const p = player(id); if (!p) return;
@@ -1722,6 +1823,11 @@ function pointDiffByPlayer(rounds = state.rounds) {
 }
 
 function leaderboardOrder(list, diff = pointDiffByPlayer()) {
+  // A tournament ranks teams, and the podium on this board has to be that
+  // podium -- otherwise the standings and the badges would disagree on the
+  // same screen.
+  const t = tourney();
+  if (t && t.started()) return t.playerOrder(list, diff);
   return [...list].sort((a, b) => {
     const aPlayed = (Number(a.games) || 0) > 0, bPlayed = (Number(b.games) || 0) > 0;
     if (aPlayed !== bPlayed) return aPlayed ? -1 : 1;           // unplayed go last
@@ -1747,7 +1853,9 @@ function renderLeaderboard() {
   let rank = 0;
   el.className = "leaderboard";
   el.innerHTML = `
-    <div class="lb-note">Ranked by <b>Score</b>: win rate adjusted for games played, so a lucky start can't jump the board. Starting rating does not affect rank.</div>
+    <div class="lb-note">${tourney() && tourney().started()
+      ? `Ranked by the <b>tournament standings</b>: the champions come first, then the runners-up, and so on. Within a team the player with the better point difference is listed first.`
+      : `Ranked by <b>Score</b>: win rate adjusted for games played, so a lucky start can't jump the board. Starting rating does not affect rank.`}</div>
     <div class="rank-row rank-head">
       <div>#</div><div>Player</div><div class="lb-cell optional">Wins</div><div class="lb-cell">Games</div><div class="lb-cell optional">Win rate</div><div class="lb-cell optional">Rating</div><div class="lb-cell">Score</div>
     </div>
@@ -1874,7 +1982,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "7.9";
+const APP_VERSION = "8.0";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;
@@ -1888,6 +1996,12 @@ function buildSessionSummary() {
     courts: state.courtCount,
     gamesPerPlayer: state.gameLimit || "No limit",
     fixedPartners: fixedPairs().length ? fixedPairs().map(pairLabel) : "None",
+    // A session that ran a tournament and then went back to open play is both,
+    // and the record of the draw outlives the mode, so say so.
+    format: tournamentMode() ? "Round robin tournament"
+      : (window.Tournament && window.Tournament.summary()) ? "Round robin tournament, then open play"
+      : "Open play",
+    tournament: window.Tournament ? window.Tournament.summary() : null,
     courtLevels: courtRulesOn()
       ? Object.fromEntries(courtsInUse().map(c => [`court${c}`, courtRuleLabel(c)]))
       : "Off (any player on any court)",
