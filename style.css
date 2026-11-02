@@ -12,7 +12,7 @@
   /* Surfaces that are not simply "a panel": an inset well, a barely-there
      raise, the sticky menu bar, the toast. Each one inverts in light mode,
      so none of them may be written as a literal in a rule. */
-  --inset:var(--inset); --tint:rgba(255,255,255,.06); --menu-bg:rgba(20,15,10,.92);
+  --inset:#120d08; --tint:rgba(255,255,255,.06); --menu-bg:rgba(20,15,10,.92);
   --toast-bg:#fdf8f3; --toast-ink:#17100a;
   --wash:radial-gradient(900px 480px at 12% -8%,rgba(255,122,24,.2),transparent 65%),
          radial-gradient(700px 420px at 100% 0,rgba(255,122,24,.07),transparent 60%);
@@ -332,6 +332,12 @@ label,.field-label{display:block;color:var(--muted);font-size:12px;font-weight:7
 input,select{width:100%;min-height:48px;margin-top:6px;padding:0 14px;border-radius:12px;border:1px solid var(--line-2);background:var(--inset);color:var(--text);font-size:15px}
 input::placeholder{color:var(--dim)}
 input:focus,select:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 3px rgba(255,122,24,.18)}
+/* The open dropdown is drawn by the platform, not by the page, so it does not
+   inherit the select's own colours. Said here, the list reads in both themes
+   instead of leaving near-white names on the platform's white. */
+select option{background:var(--panel-2);color:var(--text)}
+select option:checked{background:var(--lime);color:var(--lime-ink)}
+select option:disabled{color:var(--dim)}
 .player-form{display:grid;grid-template-columns:1.6fr 1.2fr auto;gap:14px;align-items:end}
 
 /* ---------- match settings ---------- */

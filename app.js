@@ -2069,7 +2069,7 @@ document.addEventListener("keydown", e => {
 // ---- session summary ----
 // Standings and match results in a readable shape. The spreadsheet link in
 // sheets.js sends this; nothing else reads it.
-const APP_VERSION = "8.4";
+const APP_VERSION = "8.4.1";
 function buildSessionSummary() {
   const diff = pointDiffByPlayer();
   const name = id => (player(id) || {}).name || `#${id}`;

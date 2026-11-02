@@ -1,4 +1,21 @@
-# BuenasxPickle v8.4 — Third Place
+# BuenasxPickle v8.4.1 — Readable Dropdowns
+
+## Fixed in v8.4.1
+The player dropdowns opened as a white list of near-white names — only the highlighted
+one could be read.
+
+The cause was one line of CSS: the dark theme defined `--inset` as `var(--inset)`, a
+self-reference, which CSS treats as a cycle and throws away. Every `background:
+var(--inset)` in dark mode was therefore transparent, the `<select>` had no background
+of its own, and the platform drew its dropdown on white while the names kept the page's
+near-white text colour. Dark mode now has a real inset colour (`#120d08`), which also
+brings back the recessed well on the eleven other surfaces that use it — match cards,
+the stepper rows, the court level cards, the fixed-partner row, the fixture lines and
+the playoff columns.
+
+The open list is drawn by the platform and does not inherit the select's colours, so
+`option` now states its own background and text colour. The list reads in both themes
+whatever the platform would have painted.
 
 ## What changed in v8.4
 A playoff bracket can now finish with a **third-place match**. Turn it on beside the
